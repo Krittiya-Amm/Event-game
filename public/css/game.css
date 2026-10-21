@@ -601,3 +601,8 @@ p { margin: 0; }
   box-shadow: 0 0 0 2.5px rgba(255, 255, 255, .85), 0 0 22px 8px rgba(255, 255, 255, .4),
     inset 0 0 0 5px rgba(167, 139, 250, .25), 0 10px 20px -6px rgba(46, 16, 101, .5);
 }
+/* Bigger pick cards: tighter heading on this screen, and let the grid use more of the height. */
+[data-screen="pick"] { gap: 12px; }
+[data-screen="pick"] .stage-head .eyebrow { display: none; }
+[data-screen="pick"] .stage-head { gap: 2px; }
+.pick-grid { width: min(100%, calc((100dvh - 215px) * .75 + 20px)); gap: 12px; padding: 4px 2px; }
