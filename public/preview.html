@@ -6,32 +6,32 @@
   <title>Mobile Preview · Scratch & Win</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Mitr:wght@500;600&family=Prompt:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
-    :root { --bg: #0f0d1f; --ink: #fff; --soft: rgba(255, 255, 255, .7); --gold: #ffc531; }
+    :root { --bg: #090f27; --ink: #f5eedf; --soft: rgba(245, 238, 223, .68); --gold: #fcd34d; }
     * { box-sizing: border-box; }
     html, body { margin: 0; height: 100%; }
     body {
       font-family: 'Prompt', system-ui, sans-serif; color: var(--ink); overflow-x: hidden;
-      background: radial-gradient(90% 70% at 70% 30%, #3a3170 0%, #1c1838 45%, var(--bg) 100%);
+      background: radial-gradient(90% 70% at 70% 30%, #4c1d95 0%, #1e1150 45%, var(--bg) 100%);
       display: grid; grid-template-columns: minmax(280px, 420px) auto; align-items: center; justify-content: center; gap: 72px; padding: 24px 40px;
     }
     .intro { display: grid; gap: 18px; max-width: 420px; }
-    .kicker { font: 500 13px 'Mitr', sans-serif; letter-spacing: 2px; color: var(--gold); text-transform: uppercase; }
-    h1 { margin: 0; font: 600 clamp(36px, 4vw, 54px)/1.05 'Mitr', sans-serif; }
-    h1 span { display: block; background: linear-gradient(180deg, #fff3b8, var(--gold) 60%, #ff9f1c); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .kicker { font: 500 13px 'Prompt', sans-serif; letter-spacing: 2px; color: var(--gold); text-transform: uppercase; }
+    h1 { margin: 0; font: 600 clamp(36px, 4vw, 54px)/1.05 'Prompt', sans-serif; }
+    h1 span { display: block; background: linear-gradient(180deg, #fde68a, #fcd34d 60%, #f59e0b); -webkit-background-clip: text; background-clip: text; color: transparent; }
     p { margin: 0; color: var(--soft); line-height: 1.6; }
     .steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; counter-reset: s; }
     .steps li { counter-increment: s; display: flex; gap: 12px; align-items: center; color: var(--soft); font-size: 15px; }
-    .steps li::before { content: counter(s); width: 28px; height: 28px; flex: none; border-radius: 50%; display: grid; place-items: center; font: 600 14px 'Mitr', sans-serif; background: rgba(255, 197, 49, .15); color: var(--gold); border: 1px solid rgba(255, 197, 49, .35); }
+    .steps li::before { content: counter(s); width: 28px; height: 28px; flex: none; border-radius: 50%; display: grid; place-items: center; font: 600 14px 'Prompt', sans-serif; background: rgba(252, 211, 77, .15); color: var(--gold); border: 1px solid rgba(252, 211, 77, .35); }
     .controls { display: flex; gap: 10px; flex-wrap: wrap; }
     .controls button, .controls a {
       font: 500 14px 'Prompt', sans-serif; color: var(--ink); text-decoration: none; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
       padding: 10px 16px; border-radius: 12px; background: rgba(255, 255, 255, .1); border: 1px solid rgba(255, 255, 255, .2); min-height: 42px;
     }
     .controls button:hover, .controls a:hover { background: rgba(255, 255, 255, .18); }
-    .controls .primary { background: var(--gold); color: #3b2400; border-color: var(--gold); font-weight: 600; transition: background .15s, color .15s; }
-    .controls .primary:hover { background: rgba(255, 197, 49, .22); color: #fff; border-color: var(--gold); }
+    .controls .primary { background: var(--gold); color: #22190a; border-color: var(--gold); font-weight: 600; transition: background .15s, color .15s; }
+    .controls .primary:hover { background: rgba(252, 211, 77, .2); color: var(--ink); border-color: var(--gold); }
     .controls .ic { width: 18px; height: 18px; flex: none; }
     .seg { display: inline-flex; padding: 3px; gap: 2px; border-radius: 12px; background: rgba(255, 255, 255, .08); border: 1px solid rgba(255, 255, 255, .15); }
     .seg button { border: 0; background: transparent; min-height: 34px; padding: 6px 12px; border-radius: 9px; }
@@ -48,20 +48,20 @@
       --w: 390px; --h: 844px;
       position: relative; width: calc(var(--w) + 28px); height: calc(var(--h) + 28px); padding: 14px; border-radius: 62px;
       background: linear-gradient(145deg, #3b3a44, #121117 40%, #2a2930);
-      box-shadow: 0 0 0 2px #5b5a64, 0 0 0 6px #18171d, 0 50px 90px -20px rgba(0, 0, 0, .8), 0 0 120px -30px rgba(124, 92, 255, .6);
+      box-shadow: 0 0 0 2px #5b5a64, 0 0 0 6px #18171d, 0 50px 90px -20px rgba(0, 0, 0, .8), 0 0 120px -30px rgba(139, 92, 246, .6);
       transform-origin: center; flex: none;
     }
     .phone::before, .phone::after { content: ''; position: absolute; left: -9px; width: 5px; border-radius: 3px 0 0 3px; background: #2a2930; }
     .phone::before { top: 170px; height: 60px; }
     .phone::after { top: 245px; height: 60px; }
     .side-btn { position: absolute; right: -9px; top: 210px; width: 5px; height: 95px; border-radius: 0 3px 3px 0; background: #2a2930; }
-    .screen { position: relative; width: var(--w); height: var(--h); border-radius: 48px; overflow: hidden; background: #2b2654; display: flex; flex-direction: column; }
+    .screen { position: relative; width: var(--w); height: var(--h); border-radius: 48px; overflow: hidden; background: #f5f3ff; display: flex; flex-direction: column; }
     .screen iframe { width: 100%; flex: 1; border: 0; display: block; }
-    .statusbar { height: 54px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 6px 30px 0 34px; font: 600 15px -apple-system, 'Prompt', sans-serif; color: #fff; }
+    .statusbar { height: 54px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 6px 30px 0 34px; font: 600 15px -apple-system, 'Prompt', sans-serif; color: #1e1b3a; }
     .statusbar .icons { display: flex; gap: 6px; align-items: center; }
-    .statusbar svg { height: 12px; fill: #fff; }
+    .statusbar svg { height: 12px; fill: #1e1b3a; }
     .island { position: absolute; top: 11px; left: 50%; transform: translateX(-50%); width: 122px; height: 35px; border-radius: 20px; background: #000; z-index: 3; pointer-events: none; }
-    .home { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); width: 136px; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, .55); z-index: 3; pointer-events: none; }
+    .home { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); width: 136px; height: 5px; border-radius: 3px; background: rgba(30, 27, 58, .45); z-index: 3; pointer-events: none; }
     .phone.android { border-radius: 40px; }
     .phone.android .screen { border-radius: 28px; }
     .phone.android .island { width: 14px; height: 14px; top: 14px; border-radius: 50%; }
@@ -123,7 +123,7 @@
           <span class="icons">
             <svg viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
             <svg viewBox="0 0 16 12"><path d="M8 2.5c2.3 0 4.4.9 6 2.4l1.3-1.4A10.4 10.4 0 0 0 8 .5C5.2.5 2.6 1.6.7 3.5L2 4.9a8.4 8.4 0 0 1 6-2.4Zm0 4c1.2 0 2.3.4 3.2 1.2l1.3-1.4A6.5 6.5 0 0 0 8 4.5c-1.7 0-3.3.7-4.5 1.8l1.3 1.4C5.7 6.9 6.8 6.5 8 6.5Zm0 4 2-2a2.9 2.9 0 0 0-4 0l2 2Z"/></svg>
-            <svg viewBox="0 0 27 12"><rect x=".5" y=".5" width="22" height="11" rx="3" fill="none" stroke="#fff" opacity=".5"/><rect x="2" y="2" width="17" height="8" rx="1.8"/><rect x="24" y="4" width="2" height="4" rx="1" opacity=".5"/></svg>
+            <svg viewBox="0 0 27 12"><rect x=".5" y=".5" width="22" height="11" rx="3" fill="none" stroke="#1e1b3a" opacity=".5"/><rect x="2" y="2" width="17" height="8" rx="1.8"/><rect x="24" y="4" width="2" height="4" rx="1" opacity=".5"/></svg>
           </span>
         </div>
         <iframe id="game" src="/" title="หน้าเกม Scratch & Win" allow="vibrate"></iframe>

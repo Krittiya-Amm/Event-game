@@ -146,7 +146,7 @@ export async function createApp({ dbFile = 'data/event.db', env = process.env, c
   // Step 6 on the player's phone: staff types their name to confirm the hand-over.
   app.post('/api/claim', player, async (req, res) => {
     const staffName = String(req.body?.staffName || '').trim().slice(0, 50);
-    if (!staffName) return res.status(400).json({ error: 'กรุณากรอก Staff Code' });
+    if (!staffName) return res.status(400).json({ error: 'กรุณากรอก Staff Name' });
     const out = await game.claim(req.uid, req.body?.code, staffName);
     res.status(out.ok ? 200 : out.reason === 'not_found' ? 404 : 409).json(out);
   });
