@@ -113,7 +113,7 @@ const sound = (() => {
 })();
 
 // ---------- helpers ----------
-const STEP_OF = { register: 1, scratch: 2, result: 3 }; // the intro screen has no step bar
+const STEP_OF = { register: 1, pick: 2, scratch: 2, result: 3 }; // the intro screen has no step bar
 
 function show(name, { loadingText } = {}) {
   if (name === 'loading') bind('loadingText', loadingText || 'กำลังโหลด…');
@@ -369,7 +369,7 @@ regForm.addEventListener('submit', async (e) => {
       focusFirstError(form);
       return;
     }
-    if (data.status === 'ready') await startPlay();
+    if (data.status === 'ready') showPick();
     else route(data);
   } catch (err) { fail(err); } finally { btn.disabled = false; btn.classList.remove('busy'); }
 });
@@ -378,7 +378,7 @@ regForm.addEventListener('submit', async (e) => {
 let isRegistered = false;
 const onScreen = (name) => !$(`[data-screen="${name}"]`).hidden;
 $('#btn-intro').addEventListener('click', () => {
-  if (isRegistered) return startPlay();
+  if (isRegistered) return showPick();
   show('register');
   history.pushState({ screen: 'register' }, ''); // phone back button returns to the intro
 });
@@ -389,25 +389,86 @@ $('#btn-back').addEventListener('click', () => {
 window.addEventListener('popstate', () => { if (onScreen('register')) show('landing'); });
 
 // ---------- step 4: scratch ----------
+// ---------- pick a card ----------
+// Purely a moment of anticipation: the prize is allocated by the server (next slot) when a card is tapped,
+// whichever card it is. The other cards just fade away — we never show what they "would have" been.
+const PICK_COUNT = 4;
 let playing = false;
-async function startPlay() {
+
+function showPick() {
+  show('pick');
+  $('#pick-sub').textContent = 'แตะ 1 ใบเพื่อเริ่มขูด';
+  const grid = $('#pick-grid');
+  grid.className = 'pick-grid';
+  const art = cardArt();
+  if (art) grid.style.setProperty('--card-art', `url(${art})`);
+  grid.innerHTML = Array.from({ length: PICK_COUNT }, (_, i) =>
+    `<button class="pick-card" type="button" style="--i:${i}" data-i="${i}" aria-label="การ์ดใบที่ ${i + 1}">`
+    + `<span class="pick-no">${i + 1}</span><span class="pick-emblem"><img src="/img/sellsuki-logo.svg" alt="" draggable="false"></span></button>`).join('');
+  const sub = $('#pick-sub');
+  const cards = $$('.pick-card', grid);
+  if (reducedMotion() || !grid.animate) return;
+  // One continuous move: the cards start as a deck in the centre, riffle once, then deal out to their spots.
+  grid.classList.add('dealing');
+  sub.textContent = 'กำลังสับการ์ด…';
+  const g = grid.getBoundingClientRect();
+  let last = null;
+  cards.forEach((c, i) => {
+    const r = c.getBoundingClientRect();
+    const dx = g.left + g.width / 2 - (r.left + r.width / 2);
+    const dy = g.top + g.height / 2 - (r.top + r.height / 2);
+    const tilt = [-6, 4, -3, 7][i % 4];
+    const side = i % 2 ? 1 : -1;
+    const deck = `translate(${dx}px, ${dy - i * 3}px) rotate(${tilt}deg) scale(.9)`;
+    last = c.animate([
+      { transform: deck, opacity: 0, offset: 0 },
+      { transform: deck, opacity: 1, offset: 0.12 },
+      { transform: `translate(${dx + side * 36}px, ${dy}px) rotate(${-tilt}deg) scale(.9)`, offset: 0.3 }, // riffle
+      { transform: deck, offset: 0.48 },
+      { transform: 'none', opacity: 1, offset: 1 }, // deal to its slot
+    ], { duration: 1500 + i * 140, easing: 'cubic-bezier(.3, .7, .2, 1)', fill: 'backwards' });
+  });
+  sound.tap();
+  last.finished.catch(() => {}).then(() => {
+    grid.classList.remove('dealing');
+    if (onScreen('pick')) sub.textContent = 'แตะ 1 ใบเพื่อเริ่มขูด';
+  });
+}
+
+$('#pick-grid').addEventListener('click', (e) => {
+  const card = e.target.closest('.pick-card');
+  const grid = $('#pick-grid');
+  if (!card || grid.classList.contains('picked') || grid.classList.contains('dealing')) return;
+  grid.classList.add('picked'); // one pick only
+  card.classList.add('chosen');
+  $$('.pick-card', grid).forEach((c) => { if (c !== card) c.classList.add('gone'); });
+  sound.tap();
+  navigator.vibrate?.(12);
+  startPlay(card);
+});
+
+/** Draw the prize (server) and open the scratch card — from the chosen card when there is one. */
+async function startPlay(card = null) {
   if (playing) return; // double tap → one request
   playing = true;
-  show('loading', { loadingText: 'กำลังเตรียมบัตรของคุณ…' });
+  if (!card) show('loading', { loadingText: 'กำลังเตรียมบัตรของคุณ…' });
+  const slow = card && setTimeout(() => { $('#pick-sub').textContent = 'กำลังเตรียมบัตรของคุณ…'; }, 900);
   try {
-    const { data } = await api('/api/play', { method: 'POST' });
+    const minPause = new Promise((r) => setTimeout(r, card && !reducedMotion() ? 650 : 0)); // let the pick land
+    const [{ data }] = await Promise.all([api('/api/play', { method: 'POST' }), minPause]);
     if (data.status === 'won') {
       setPrize(data.play);
-      return startScratch();
+      return startScratch({ from: card });
     }
     await refresh(); // played / soldout / closed — let state decide the screen
-  } catch (err) { fail(err); } finally { playing = false; }
+  } catch (err) { fail(err); } finally { clearTimeout(slow); playing = false; }
 }
 
 const REVEAL_AT = 0.5; // share of the foil actually cleared
 let scratchSession = 0;
 
-function startScratch() {
+function startScratch({ from = null } = {}) {
+  const fromRect = from?.getBoundingClientRect();
   const session = ++scratchSession;
   bind('resultEyebrow', 'ยินดีด้วย');
   show('scratch');
@@ -422,6 +483,17 @@ function startScratch() {
   const frame = $('#ticket-frame');
   frame.classList.remove('revealed');
   frame.dataset.tier = tierOf(current.prize);
+  // The chosen card grows into the scratch card (FLIP: start at the card's old spot, animate to rest).
+  if (fromRect && !reducedMotion() && frame.animate) {
+    const to = frame.getBoundingClientRect();
+    const dx = fromRect.left + fromRect.width / 2 - (to.left + to.width / 2);
+    const dy = fromRect.top + fromRect.height / 2 - (to.top + to.height / 2);
+    frame.style.animation = 'none';
+    frame.animate([
+      { transform: `translate(${dx}px, ${dy}px) scale(${fromRect.width / to.width})`, borderRadius: '18px' },
+      { transform: 'none', borderRadius: '24px' },
+    ], { duration: 520, easing: 'cubic-bezier(.2, .8, .2, 1)' });
+  } else frame.style.animation = '';
   $('#foil-sheen').classList.remove('off');
   $('#scratch-hint').classList.remove('quiet');
   const revealBtn = $('#btn-reveal-all');
@@ -443,10 +515,10 @@ function startScratch() {
 
   // Draw once the web font is ready (Thai text measured with a fallback font ends up off-centre).
   const fontsReady = document.fonts
-    ? Promise.all(['600 26px Prompt', '500 11px Prompt'].map((f) => document.fonts.load(f, 'ขูดตรงนี้'))).catch(() => {})
+    ? Promise.all(['600 20px Prompt', '500 9px Prompt', '600 11px Prompt'].map((f) => document.fonts.load(f, 'ขูดตรงนี้'))).catch(() => {})
     : Promise.resolve();
   // clientWidth forces layout, so no need to wait for a frame (rAF also stalls in background tabs).
-  Promise.race([fontsReady, new Promise((r) => setTimeout(r, 1500))]).then(() => {
+  Promise.race([Promise.all([fontsReady, logoReady]), new Promise((r) => setTimeout(r, 1500))]).then(() => {
     if (session !== scratchSession || finished) return;
     card = setupScratch(canvas, reveal);
   });
@@ -531,72 +603,107 @@ staffForm.addEventListener('submit', async (e) => {
 });
 
 // ---------- scratch canvas ----------
-/** Metallic gold foil: brushed grain, embossed diamond pattern, inner frame and a centre medallion. */
-function drawFoil(ctx, w, h) {
-  const g = ctx.createLinearGradient(0, 0, w, h);
-  [[0, '#b38c48'], [0.17, '#efd8a0'], [0.34, '#c19a54'], [0.5, '#f7e8bf'], [0.68, '#b48b45'], [0.85, '#e4c98e'], [1, '#a57d3a']]
-    .forEach(([o, c]) => g.addColorStop(o, c));
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, w, h);
+/** Card art (brand CI): violet with a sunburst, holographic glows, sparkles and a dashed ticket frame.
+ *  With `badge`, adds the centre badge (Sellsuki logo + "ขูดตรงนี้") — used on the scratch foil. */
+const LOGO = new Image();
+LOGO.src = '/img/sellsuki-logo.svg';
+const logoReady = (LOGO.decode ? LOGO.decode() : new Promise((r) => { LOGO.onload = r; LOGO.onerror = r; })).catch(() => {});
 
-  // brushed-metal grain
-  for (let i = 0, n = (w * h) / 200; i < n; i++) {
-    ctx.fillStyle = Math.random() < 0.5 ? `rgba(255,248,225,${0.05 + Math.random() * 0.09})` : `rgba(80,55,15,${0.03 + Math.random() * 0.06})`;
-    ctx.fillRect(Math.random() * w - 20, Math.random() * h, 12 + Math.random() * 60, 0.7);
+function drawFoil(ctx, w, h, { badge = true } = {}) {
+  const cx = w / 2; const cy = h / 2; const r = Math.min(w, h) * 0.27;
+  let seed = 7; // fixed seed → every card looks the same
+  const rand = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+
+  // base
+  const g = ctx.createLinearGradient(0, 0, w * 0.3, h);
+  g.addColorStop(0, '#9d6bff'); g.addColorStop(0.5, '#7c3aed'); g.addColorStop(1, '#5b21b6');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+
+  // sunburst from the centre
+  ctx.save(); ctx.translate(cx, cy);
+  const R = Math.hypot(w, h); const n = 28;
+  ctx.fillStyle = 'rgba(255,255,255,.075)';
+  for (let i = 0; i < n; i += 2) {
+    const a0 = (i / n) * Math.PI * 2; const a1 = ((i + 1) / n) * Math.PI * 2;
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, R, a0, a1); ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+
+  // holographic glows + soft light behind the badge
+  for (const [x, y, rad, col, a] of [[w * 0.95, 0, w * 0.75, '244,114,182', 0.5], [0, h, w * 0.8, '50,169,255', 0.45],
+    [0, 0, w * 0.5, '252,211,77', 0.3], [cx, cy, r * 2.4, '255,255,255', 0.28]]) {
+    const t = ctx.createRadialGradient(x, y, 0, x, y, rad);
+    t.addColorStop(0, `rgba(${col},${a})`); t.addColorStop(1, `rgba(${col},0)`);
+    ctx.fillStyle = t; ctx.fillRect(0, 0, w, h);
   }
 
-  // embossed diamond lattice (light edge + dark edge)
-  const step = 18;
-  const lattice = (color, off) => {
-    ctx.strokeStyle = color; ctx.lineWidth = 1;
-    ctx.beginPath();
-    for (let d = -h; d < w + h; d += step) {
-      ctx.moveTo(d + off, off); ctx.lineTo(d + h + off, h + off);
-      ctx.moveTo(d + off, h + off); ctx.lineTo(d + h + off, off);
-    }
-    ctx.stroke();
+  // sparkles and dots (kept clear of the badge)
+  const sparkle = (x, y, s) => {
+    ctx.beginPath(); ctx.moveTo(x, y - s);
+    ctx.quadraticCurveTo(x, y, x + s, y); ctx.quadraticCurveTo(x, y, x, y + s);
+    ctx.quadraticCurveTo(x, y, x - s, y); ctx.quadraticCurveTo(x, y, x, y - s); ctx.fill();
   };
-  lattice('rgba(255,246,220,.16)', 0.7);
-  lattice('rgba(96,66,20,.13)', 0);
+  const colors = ['rgba(255,255,255,.9)', 'rgba(253,230,138,.95)', 'rgba(251,207,232,.9)', 'rgba(186,230,253,.9)'];
+  for (let i = 0, k = Math.round((w * h) / 2600); i < k; i++) {
+    const x = 18 + rand() * (w - 36); const y = 18 + rand() * (h - 36);
+    if (Math.hypot(x - cx, y - cy) < r * 1.3) continue;
+    ctx.fillStyle = colors[(rand() * colors.length) | 0];
+    if (rand() < 0.45) sparkle(x, y, 3 + rand() * 6);
+    else { ctx.beginPath(); ctx.arc(x, y, 1 + rand() * 1.8, 0, Math.PI * 2); ctx.fill(); }
+  }
 
-  // inner engraved frame
-  const frame = (inset, r, color, off) => {
-    ctx.strokeStyle = color; ctx.lineWidth = 1;
-    ctx.beginPath();
-    if (ctx.roundRect) ctx.roundRect(inset + off, inset + off, w - inset * 2, h - inset * 2, r); else ctx.rect(inset + off, inset + off, w - inset * 2, h - inset * 2);
-    ctx.stroke();
-  };
-  frame(12, 13, 'rgba(255,246,220,.55)', 1); frame(12, 13, 'rgba(90,60,18,.45)', 0);
-  frame(17, 9, 'rgba(255,246,220,.3)', 1); frame(17, 9, 'rgba(90,60,18,.25)', 0);
+  // dashed ticket frame
+  ctx.save();
+  ctx.setLineDash([7, 6]); ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,255,255,.6)';
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(11, 11, w - 22, h - 22, 14); else ctx.rect(11, 11, w - 22, h - 22);
+  ctx.stroke();
+  ctx.restore();
 
-  // centre medallion
-  const cx = w / 2; const cy = h / 2; const r = Math.min(w, h) * 0.25;
-  const halo = ctx.createRadialGradient(cx, cy, r * 0.8, cx, cy, r * 1.7);
-  halo.addColorStop(0, 'rgba(255,246,215,.35)'); halo.addColorStop(1, 'rgba(255,246,215,0)');
-  ctx.fillStyle = halo; ctx.fillRect(0, 0, w, h);
-  const disc = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
-  disc.addColorStop(0, '#f8eac3'); disc.addColorStop(0.45, '#dcb873'); disc.addColorStop(1, '#a98039');
-  ctx.fillStyle = disc;
-  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
-  ctx.lineWidth = 1.5;
-  ctx.strokeStyle = 'rgba(90,60,18,.55)'; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
-  ctx.strokeStyle = 'rgba(255,248,225,.7)'; ctx.beginPath(); ctx.arc(cx, cy + 0.8, r - 6, 0, Math.PI * 2); ctx.stroke();
-  ctx.strokeStyle = 'rgba(90,60,18,.35)'; ctx.beginPath(); ctx.arc(cx, cy, r - 6, 0, Math.PI * 2); ctx.stroke();
-
-  // Centre by measuring, not by textAlign — some browsers ignore textAlign here and left-align.
-  const engraved = (text, font, cyText, { spacing = 0 } = {}) => {
+  // Centre text by measuring, not by textAlign — some browsers ignore textAlign here and left-align.
+  const label = (text, font, cyText, color, { spacing = 0 } = {}) => {
     ctx.font = font; ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
     if ('letterSpacing' in ctx) ctx.letterSpacing = `${spacing}px`;
     const m = ctx.measureText(text);
     const left = m.actualBoundingBoxLeft ?? 0; const right = m.actualBoundingBoxRight ?? m.width;
     const asc = m.actualBoundingBoxAscent || 0; const desc = m.actualBoundingBoxDescent || 0;
-    const x = cx + (left - right) / 2; const y = cyText + (asc - desc) / 2;
-    ctx.fillStyle = 'rgba(255,250,232,.75)'; ctx.fillText(text, x, y + 1); // light edge below = pressed in
-    ctx.fillStyle = '#4b3511'; ctx.fillText(text, x, y);
+    ctx.fillStyle = color; ctx.fillText(text, cx + (left - right) / 2, cyText + (asc - desc) / 2);
     if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
   };
-  engraved('ขูดตรงนี้', '600 26px Prompt, sans-serif', cy - 8);
-  engraved('SCRATCH TO REVEAL', '500 10px Prompt, sans-serif', cy + 22, { spacing: 2.2 });
+  label('SCRATCH & WIN', '600 11px Prompt, sans-serif', 32, 'rgba(255,255,255,.92)', { spacing: 3 });
+  if (!badge) return;
+
+  // centre badge: thin white rim with a soft glow, white disc, Sellsuki logo (brand only — never a prize image)
+  const glow = ctx.createRadialGradient(cx, cy, r * 0.9, cx, cy, r * 1.45); // soft white glow around the badge
+  glow.addColorStop(0, 'rgba(255,255,255,.55)'); glow.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(cx, cy, r * 1.45, 0, Math.PI * 2); ctx.fill();
+  ctx.save();
+  ctx.shadowColor = 'rgba(46,16,101,.35)'; ctx.shadowBlur = 16; ctx.shadowOffsetY = 5;
+  ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.beginPath(); ctx.arc(cx, cy, r + 2.5, 0, Math.PI * 2); ctx.fill(); // thin white rim
+  ctx.restore();
+  const disc = ctx.createRadialGradient(cx, cy - r * 0.35, r * 0.1, cx, cy, r);
+  disc.addColorStop(0, '#ffffff'); disc.addColorStop(1, '#f3eeff');
+  ctx.fillStyle = disc; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+  ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(167,139,250,.6)';
+  ctx.beginPath(); ctx.arc(cx, cy, r - 6, 0, Math.PI * 2); ctx.stroke();
+  if (LOGO.complete && LOGO.naturalWidth) {
+    const lw = r * 1.45; const lh = lw * (LOGO.naturalHeight / LOGO.naturalWidth);
+    ctx.drawImage(LOGO, cx - lw / 2, cy - r * 0.2 - lh / 2, lw, lh);
+  }
+  label('ขูดตรงนี้', '600 20px Prompt, sans-serif', cy + r * 0.38, '#6d28d9');
+  label('SCRATCH TO REVEAL', '500 9px Prompt, sans-serif', cy + r * 0.64, '#8b5cf6', { spacing: 1.8 });
+}
+
+/** The same art as an image for the pick cards (badge is HTML there). */
+let cardArtUrl = null;
+function cardArt() {
+  if (cardArtUrl) return cardArtUrl;
+  try {
+    const c = document.createElement('canvas'); c.width = 300; c.height = 400;
+    drawFoil(c.getContext('2d'), 300, 400, { badge: false });
+    cardArtUrl = c.toDataURL('image/jpeg', 0.88);
+  } catch { cardArtUrl = ''; }
+  return cardArtUrl;
 }
 
 /** Real scratching on a canvas mask. Returns { clearRest(point) } for the automatic reveal. */
