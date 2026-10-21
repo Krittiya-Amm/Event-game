@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Staff · ยืนยันรับรางวัล</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/office.css">
+</head>
+<body>
+  <section class="login" id="login">
+    <form class="panel" id="login-form">
+      <div class="logo">🎟</div>
+      <h1>Staff · ยืนยันรับรางวัล</h1>
+      <label class="field">ชื่อ Staff<input name="staffName" required maxlength="50" autocomplete="nickname"></label>
+      <label class="field">PIN<input name="pin" type="password" required autocomplete="current-password"></label>
+      <p class="small" style="color:var(--danger)" id="login-err"></p>
+      <button class="btn btn-primary btn-lg" type="submit">เข้าสู่ระบบ</button>
+    </form>
+  </section>
+
+  <div id="main" hidden>
+    <header class="topbar">
+      <div class="logo">🎟</div>
+      <h1>ยืนยันรับรางวัล</h1>
+      <span class="spacer"></span>
+      <span class="muted small" id="who"></span>
+      <button class="btn btn-sm" id="logout" type="button">ออก</button>
+    </header>
+    <main class="wrap staff-wrap">
+      <form class="panel" id="lookup-form" style="display:grid;gap:12px">
+        <label class="field">โค้ดรับรางวัล (6 หลัก) หรือสแกน QR จากหน้าจอผู้เล่น
+          <input class="code-input" name="code" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABC123" required>
+        </label>
+        <button class="btn btn-primary btn-lg" type="submit">ตรวจสอบโค้ด</button>
+      </form>
+
+      <section class="panel ticket" id="ticket" hidden></section>
+
+      <section class="panel">
+        <h3 style="margin-bottom:8px">ยืนยันล่าสุด (เครื่องนี้)</h3>
+        <ul class="small muted" id="history" style="margin:0;padding-left:18px;display:grid;gap:4px"></ul>
+      </section>
+    </main>
+  </div>
+  <script src="/js/staff.js" type="module"></script>
+</body>
+</html>

@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#16142b">
+  <title>Scratch & Win</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Mitr:wght@500;600&family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/game.css">
+</head>
+<body>
+  <!-- Icon sprite -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-gift" viewBox="0 0 24 24"><path fill="currentColor" d="M20 7h-2.2A3 3 0 0 0 12 3.8 3 3 0 0 0 6.2 7H4a1 1 0 0 0-1 1v3a1 1 0 0 0 1 1h1v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-8h1a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1Zm-5-2a1 1 0 1 1 0 2h-2a2 2 0 0 1 2-2ZM9 5a2 2 0 0 1 2 2H9a1 1 0 0 1 0-2Zm2 15H7v-8h4v8Zm0-10H5V9h6v1Zm6 10h-4v-8h4v8Zm2-10h-6V9h6v1Z"/></symbol>
+    <symbol id="i-sound" viewBox="0 0 24 24"><path fill="currentColor" d="M4 9v6h4l5 4V5L8 9H4Zm12.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4ZM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6Z"/></symbol>
+    <symbol id="i-mute" viewBox="0 0 24 24"><path fill="currentColor" d="M4 9v6h4l5 4V5L8 9H4Zm12.6 3 2.7-2.7-1.4-1.4-2.7 2.7-2.7-2.7-1.4 1.4 2.7 2.7-2.7 2.7 1.4 1.4 2.7-2.7 2.7 2.7 1.4-1.4-2.7-2.7Z"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><path fill="currentColor" d="M17 9V7A5 5 0 0 0 7 7v2a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2ZM9 7a3 3 0 0 1 6 0v2H9V7Zm4 9.7V18h-2v-1.3a2 2 0 1 1 2 0Z"/></symbol>
+    <symbol id="i-ticket" viewBox="0 0 24 24"><path fill="currentColor" d="M21 10V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v3a2 2 0 0 1 0 4v3a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3a2 2 0 0 1 0-4Zm-6 6.5-3-1.8-3 1.8.8-3.4L7.2 11l3.5-.3L12 7.5l1.3 3.2 3.5.3-2.6 2.1.8 3.4Z"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path fill="currentColor" d="M4 20V4h2v14h14v2H4Zm4-4v-5h3v5H8Zm5 0V7h3v9h-3Zm5 0v-3h2v3h-2Z"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16Zm1-13h-2v6l5 3 1-1.7-4-2.4V7Z"/></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><path fill="currentColor" d="M16 1H8a3 3 0 0 0-3 3v16a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3V4a3 3 0 0 0-3-3Zm-4 20a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4ZM17 17H7V4h10v13Z"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path fill="currentColor" d="m9.5 16.6-4.1-4.1L4 13.9l5.5 5.5L20 8.9l-1.4-1.4z"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2 1 21h22L12 2Zm1 16h-2v-2h2v2Zm0-4h-2v-4h2v4Z"/></symbol>
+  </svg>
+
+  <div class="bg" aria-hidden="true"><i class="stars s1"></i><i class="stars s2"></i><span></span><span></span></div>
+
+  <main class="app">
+    <!-- HUD -->
+    <header class="hud">
+      <span class="spacer"></span>
+      <button class="hud-btn" id="btn-sound" type="button" aria-label="ปิดเสียง" aria-pressed="false">
+        <svg class="ic on"><use href="#i-sound"/></svg><svg class="ic off"><use href="#i-mute"/></svg>
+      </button>
+    </header>
+
+    <!-- Step bar -->
+    <ol class="steps" id="steps" hidden>
+      <li data-step="1"><span class="dot">1</span>ลงทะเบียน</li>
+      <li data-step="2"><span class="dot">2</span>ขูดบัตร</li>
+      <li data-step="3"><span class="dot">3</span>รับรางวัล</li>
+    </ol>
+
+    <!-- Loading -->
+    <section class="screen" data-screen="loading">
+      <div class="loader" aria-hidden="true"><span></span><span></span><span></span></div>
+      <p class="muted">กำลังโหลดเกม…</p>
+    </section>
+
+    <!-- Title screen + Lead form -->
+    <section class="screen" data-screen="landing" hidden>
+      <div class="title">
+        <p class="title-kicker" data-bind="eventName">Scratch & Win</p>
+        <h1 class="logo">
+          <span class="logo-top">ขูดบัตร</span>
+          <span class="logo-main">ลุ้นรางวัล!</span>
+        </h1>
+      </div>
+
+      <div class="showcase" data-bind="prizeStrip"></div>
+
+      <form id="form-register" class="panel form" novalidate>
+        <div class="panel-ribbon">ลงทะเบียนผู้เล่น</div>
+        <p class="muted small center" data-bind="playRule"></p>
+        <label>ชื่อ - นามสกุล
+          <input name="name" autocomplete="name" required maxlength="100" placeholder="เช่น สมชาย ใจดี">
+          <small class="err" data-err="name"></small>
+        </label>
+        <label>บริษัท / ร้านค้า
+          <input name="company" autocomplete="organization" required maxlength="150" placeholder="ชื่อบริษัทหรือร้าน">
+          <small class="err" data-err="company"></small>
+        </label>
+        <label>เบอร์โทรศัพท์
+          <input name="phone" type="tel" inputmode="numeric" autocomplete="tel" required maxlength="12" placeholder="08x-xxx-xxxx">
+          <small class="err" data-err="phone"></small>
+        </label>
+        <label>สนใจบริการไหน
+          <span class="select-wrap">
+            <select name="interest" required>
+              <option value="" selected disabled>เลือกบริการ</option>
+            </select>
+          </span>
+          <small class="err" data-err="interest"></small>
+        </label>
+        <label class="consent">
+          <input type="checkbox" name="consent">
+          <span>ยินยอมให้ติดต่อกลับเพื่อแจ้งข่าวสารและโปรโมชัน</span>
+        </label>
+        <button class="btn btn-play" type="submit"><span>เริ่มเกม!</span></button>
+      </form>
+
+      <div class="panel welcome" id="welcome" hidden>
+        <div class="panel-ribbon">พร้อมเล่นแล้ว</div>
+        <p class="welcome-name">สวัสดีคุณ <b data-bind="playerName"></b></p>
+        <button class="btn btn-play" id="btn-start" type="button"><span>เริ่มเกม!</span></button>
+      </div>
+    </section>
+
+    <!-- Scratch -->
+    <section class="screen" data-screen="scratch" hidden>
+      <h2 class="stage-title" id="scratch-title">ขูดให้สุด!</h2>
+      <div class="ticket-frame" id="ticket-frame">
+        <div class="scratch-wrap">
+          <div class="scratch-prize" id="scratch-prize">
+            <div class="rays" aria-hidden="true"></div>
+            <div class="rarity" data-bind="rarityHtml"></div>
+            <div class="prize-art" data-bind="prizeArt"></div>
+            <div class="prize-name" data-bind="prizeName"></div>
+          </div>
+          <canvas id="scratch-canvas" aria-label="บัตรขูด ใช้นิ้วขูดเพื่อเปิดรางวัล"></canvas>
+          <div class="sparkles" id="sparkles" aria-hidden="true"></div>
+          <div class="hint-hand" id="hint-hand" aria-hidden="true">
+            <svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="26" fill="url(#coinG)" stroke="#b77900" stroke-width="3"/><circle cx="32" cy="32" r="18" fill="none" stroke="#fff3b0" stroke-width="2" opacity=".7"/><path d="M32 20l3.5 7.3 8 1.1-5.8 5.6 1.4 7.9-7.1-3.8-7.1 3.8 1.4-7.9-5.8-5.6 8-1.1z" fill="#fff6c9"/></svg>
+            <span>ถูเลย!</span>
+          </div>
+          <div class="coin" id="coin" aria-hidden="true">
+            <svg viewBox="0 0 64 64"><defs><radialGradient id="coinG" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#fff3b0"/><stop offset=".55" stop-color="#ffc531"/><stop offset="1" stop-color="#e09a00"/></radialGradient></defs><circle cx="32" cy="32" r="26" fill="url(#coinG)" stroke="#b77900" stroke-width="3"/><circle cx="32" cy="32" r="18" fill="none" stroke="#fff3b0" stroke-width="2" opacity=".7"/><path d="M32 20l3.5 7.3 8 1.1-5.8 5.6 1.4 7.9-7.1-3.8-7.1 3.8 1.4-7.9-5.8-5.6 8-1.1z" fill="#fff6c9"/></svg>
+          </div>
+        </div>
+        <div class="stamp" id="stamp" aria-hidden="true"></div>
+      </div>
+      <div class="cheer" id="cheer" aria-live="polite"></div>
+      <div class="energy" aria-hidden="true">
+        <div class="energy-bar"><span id="scratch-bar"></span></div>
+        <b id="scratch-pct">0%</b>
+      </div>
+      <button class="link" id="btn-reveal-all" type="button" hidden>ขูดไม่ได้? แตะเพื่อเปิดผลรางวัล</button>
+    </section>
+
+    <!-- Result -->
+    <section class="screen" data-screen="result" hidden>
+      <p class="banner" data-bind="resultEyebrow">ยินดีด้วย!</p>
+      <div class="spotlight">
+        <div class="rays" aria-hidden="true"></div>
+        <div class="rarity" data-bind="rarityHtml"></div>
+        <div class="prize-art big" data-bind="prizeArt"></div>
+        <div class="prize-name" data-bind="prizeName"></div>
+      </div>
+
+      <div class="ticket" id="redeem-card">
+        <div class="redeem-pending">
+          <p class="ticket-title"><svg class="ic"><use href="#i-phone"/></svg> ยื่นหน้าจอนี้ให้ Staff ที่บูธ</p>
+          <div class="ticket-body">
+            <img id="redeem-qr" alt="QR สำหรับ Staff" width="112" height="112">
+            <div>
+              <div class="muted small">โค้ดรับรางวัล</div>
+              <div class="code" data-bind="code"></div>
+            </div>
+          </div>
+          <div class="ticket-tear" aria-hidden="true"></div>
+          <button class="btn btn-staff" id="btn-staff" type="button"><svg class="ic"><use href="#i-lock"/></svg> Staff กดยืนยัน "รับรางวัลแล้ว"</button>
+        </div>
+        <div class="redeem-done">
+          <div class="done-check"><svg class="ic"><use href="#i-check"/></svg></div>
+          <p class="done-title">รับรางวัลเรียบร้อย</p>
+          <p class="muted small">บันทึกผลลงระบบแล้ว · <span data-bind="redeemedAt"></span></p>
+          <p class="muted small">โค้ด <b data-bind="code"></b></p>
+        </div>
+      </div>
+
+      <div class="coupon" id="coupon-card" hidden>
+        <div class="coupon-tag"><svg class="ic"><use href="#i-ticket"/></svg> <span data-bind="couponTag">โบนัส! โปรโมชันพิเศษของคุณ</span></div>
+        <div class="coupon-brand" data-bind="couponBrand"></div>
+        <div class="coupon-benefit" data-bind="couponBenefit"></div>
+        <div class="muted small">แคปหน้าจอเก็บไว้ แล้วแจ้งทีมขายเพื่อใช้สิทธิ์</div>
+      </div>
+
+      <a class="cta" data-cta target="_blank" rel="noopener" hidden>
+        <svg class="ic cta-icon"><use href="#i-chart"/></svg><span class="cta-text" data-bind="ctaText"></span><span class="cta-arrow">→</span>
+      </a>
+    </section>
+
+    <!-- Sold out -->
+    <section class="screen" data-screen="soldout" hidden>
+      <div class="state-icon"><svg class="ic"><use href="#i-gift"/></svg></div>
+      <h2 class="stage-title">รางวัลวันนี้หมดแล้ว</h2>
+      <p class="muted center">รางวัลของวันนี้ถูกแจกครบแล้ว <span data-bind="nextText"></span></p>
+      <div class="panel">
+        <div class="panel-ribbon">แต่ยังรับโปรโมชันได้!</div>
+        <ul class="coupon-list" data-bind="couponList"></ul>
+      </div>
+      <a class="cta" data-cta target="_blank" rel="noopener" hidden>
+        <svg class="ic cta-icon"><use href="#i-chart"/></svg><span class="cta-text" data-bind="ctaText"></span><span class="cta-arrow">→</span>
+      </a>
+    </section>
+
+    <!-- Closed -->
+    <section class="screen" data-screen="closed" hidden>
+      <div class="state-icon"><svg class="ic"><use href="#i-clock"/></svg></div>
+      <h2 class="stage-title" data-bind="closedTitle">เกมยังไม่เปิด</h2>
+      <p class="muted center" data-bind="closedText"></p>
+      <div class="panel">
+        <div class="panel-ribbon">ตารางเปิดเกม</div>
+        <ul class="schedule" data-bind="schedule"></ul>
+      </div>
+      <button class="btn btn-ghost" type="button" data-action="refresh">ลองใหม่</button>
+    </section>
+
+    <!-- Error -->
+    <section class="screen" data-screen="error" hidden>
+      <div class="state-icon warn"><svg class="ic"><use href="#i-alert"/></svg></div>
+      <h2 class="stage-title">เกิดข้อผิดพลาด</h2>
+      <p class="muted center" data-bind="errorText">กรุณาลองใหม่อีกครั้ง</p>
+      <button class="btn btn-play" type="button" data-action="refresh"><span>ลองใหม่</span></button>
+    </section>
+  </main>
+
+  <!-- Staff confirm on the player's phone -->
+  <dialog id="staff-dialog" class="sheet">
+    <form method="dialog" id="staff-form" class="form">
+      <h3>สำหรับ Staff เท่านั้น</h3>
+      <p class="muted small">ตรวจรางวัล <b data-bind="prizeName"></b> · โค้ด <b data-bind="code"></b> แล้วกรอก Staff Code เพื่อยืนยันการส่งมอบ</p>
+      <label>Staff Code
+        <input name="staffName" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="50" required>
+        <small class="err" data-err="staffName"></small>
+      </label>
+      <div class="sheet-actions">
+        <button class="btn btn-ghost-dark" value="cancel" type="button" id="staff-cancel">ยกเลิก</button>
+        <button class="btn btn-ok" type="submit">ยืนยันรับรางวัลแล้ว</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="flash" id="flash" aria-hidden="true"></div>
+  <canvas id="confetti" aria-hidden="true"></canvas>
+  <script src="/js/game.js" type="module"></script>
+</body>
+</html>

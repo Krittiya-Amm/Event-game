@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Backoffice · Scratch Card</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-home" viewBox="0 0 24 24"><path fill="currentColor" d="M4 13h6V4H4v9Zm0 7h6v-5H4v5Zm8 0h8v-9h-8v9Zm0-16v5h8V4h-8Z"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><path fill="currentColor" d="M16 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-8 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm0 2c-2.3 0-7 1.2-7 3.5V19h14v-2.5C15 14.2 10.3 13 8 13Zm8 0h-1a4.2 4.2 0 0 1 2 3.5V19h6v-2.5c0-2.3-4.7-3.5-7-3.5Z"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><path fill="currentColor" d="M3 3h5v5H3V3Zm6.5 0h5v5h-5V3ZM16 3h5v5h-5V3ZM3 9.5h5v5H3v-5Zm6.5 0h5v5h-5v-5Zm6.5 0h5v5h-5v-5ZM3 16h5v5H3v-5Zm6.5 0h5v5h-5v-5Zm6.5 0h5v5h-5v-5Z"/></symbol>
+    <symbol id="i-cal" viewBox="0 0 24 24"><path fill="currentColor" d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Zm0 16H5V9h14v11ZM7 11h5v5H7v-5Z"/></symbol>
+    <symbol id="i-ticket" viewBox="0 0 24 24"><path fill="currentColor" d="M21 10V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v3a2 2 0 0 1 0 4v3a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3a2 2 0 0 1 0-4Zm-6 6.5-3-1.8-3 1.8.8-3.4L7.2 11l3.5-.3L12 7.5l1.3 3.2 3.5.3-2.6 2.1.8 3.4Z"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><path fill="currentColor" d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3h-4l-.4 2.9a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.4 7.4 0 0 0 1.7 1L11 21h4l.4-2.9a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.5-2.2-1.6ZM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Z" transform="translate(-1 0)"/></symbol>
+    <symbol id="i-qr" viewBox="0 0 24 24"><path fill="currentColor" d="M3 3h8v8H3V3Zm2 2v4h4V5H5Zm8-2h8v8h-8V3Zm2 2v4h4V5h-4ZM3 13h8v8H3v-8Zm2 2v4h4v-4H5Zm8-2h2v2h-2v-2Zm2 2h2v2h-2v-2Zm2-2h4v2h-4v-2Zm-4 4h2v4h-2v-4Zm4 0h4v2h-2v2h-2v-4Zm2 4h2v-2h-2v2Z"/></symbol>
+    <symbol id="i-staff" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-3Zm-1.5 14.5-3.5-3.5 1.4-1.4 2.1 2.1 5.1-5.1 1.4 1.4-6.5 6.5Z"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path fill="currentColor" d="M14 3v2h3.6l-9.8 9.8 1.4 1.4L19 6.4V10h2V3h-7Zm5 16H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7h-2v7Z"/></symbol>
+    <symbol id="i-out" viewBox="0 0 24 24"><path fill="currentColor" d="M10 17v-3H3v-4h7V7l5 5-5 5Zm9 4h-7v-2h7V5h-7V3h7a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2Z"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path fill="currentColor" d="M3 6h18v2H3V6Zm0 5h18v2H3v-2Zm0 5h18v2H3v-2Z"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M15.5 15.5 20 20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path fill="currentColor" d="M5 20h14v-2H5v2ZM19 9h-4V3H9v6H5l7 7 7-7Z"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2Z"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path fill="currentColor" d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12ZM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4Z"/></symbol>
+    <symbol id="i-dice" viewBox="0 0 24 24"><path fill="currentColor" d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2ZM7.5 18a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm0-9a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm4.5 4.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm4.5 4.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm0-9a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><path fill="currentColor" d="M17 9V7A5 5 0 0 0 7 7v2a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2ZM9 7a3 3 0 0 1 6 0v2H9V7Z"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path fill="currentColor" d="m9.5 16.6-4.1-4.1L4 13.9l5.5 5.5L20 8.9l-1.4-1.4z"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path fill="currentColor" d="M12 5C7 5 2.7 8.1 1 12c1.7 3.9 6 7 11 7s9.3-3.1 11-7c-1.7-3.9-6-7-11-7Zm0 11.5a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9Zm0-7a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z"/></symbol>
+    <symbol id="i-gift" viewBox="0 0 24 24"><path fill="currentColor" d="M20 7h-2.2A3 3 0 0 0 12 3.8 3 3 0 0 0 6.2 7H4a1 1 0 0 0-1 1v3a1 1 0 0 0 1 1h1v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-8h1a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1Zm-5-2a1 1 0 1 1 0 2h-2a2 2 0 0 1 2-2ZM9 5a2 2 0 0 1 2 2H9a1 1 0 0 1 0-2Zm2 15H7v-8h4v8Zm0-10H5V9h6v1Zm6 10h-4v-8h4v8Zm2-10h-6V9h6v1Z"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path fill="currentColor" d="M9 3 7.2 5H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3.2L15 3H9Zm3 15a5 5 0 1 1 0-10 5 5 0 0 1 0 10Zm0-2a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16Zm1-13h-2v6l5 3 1-1.7-4-2.4V7Z"/></symbol>
+  </svg>
+
+  <!-- Login -->
+  <section class="login" id="login">
+    <form class="login-card" id="login-form">
+      <div class="brand-mark"><svg class="ic"><use href="#i-ticket"/></svg></div>
+      <div>
+        <h1>Backoffice</h1>
+        <p class="muted">ระบบหลังบ้านเกมขูดบัตร</p>
+      </div>
+      <label class="field">ชื่อผู้ใช้
+        <input name="username" type="text" required autocomplete="username" autocapitalize="none" spellcheck="false" autofocus>
+      </label>
+      <label class="field">รหัสผ่าน
+        <span class="input-wrap">
+          <input name="password" type="password" required autocomplete="current-password">
+          <button class="icon-btn" type="button" id="pw-toggle" aria-label="แสดงรหัสผ่าน"><svg class="ic"><use href="#i-eye"/></svg></button>
+        </span>
+      </label>
+      <p class="form-err" id="login-err" role="alert"></p>
+      <button class="btn btn-primary btn-block" type="submit">เข้าสู่ระบบ</button>
+    </form>
+  </section>
+
+  <div class="shell" id="main" hidden>
+    <aside class="side" id="side">
+      <div class="side-brand">
+        <div class="brand-mark sm"><svg class="ic"><use href="#i-ticket"/></svg></div>
+        <div>
+          <strong>Scratch Card</strong>
+          <span class="muted small" id="side-event"></span>
+        </div>
+      </div>
+      <nav class="nav" aria-label="เมนูหลัก">
+        <button class="nav-item" data-tab="dashboard" type="button"><svg class="ic"><use href="#i-home"/></svg>ภาพรวม</button>
+        <button class="nav-item" data-tab="players" type="button"><svg class="ic"><use href="#i-users"/></svg>ผู้เล่น<span class="nav-badge" id="nav-pending" hidden></span></button>
+        <button class="nav-item" data-tab="slots" type="button"><svg class="ic"><use href="#i-grid"/></svg>รางวัล</button>
+        <button class="nav-item" data-tab="schedule" type="button"><svg class="ic"><use href="#i-cal"/></svg>วันและเวลา</button>
+        <button class="nav-item" data-tab="coupons" type="button"><svg class="ic"><use href="#i-ticket"/></svg>โปรโมชัน</button>
+        <button class="nav-item" data-tab="settings" type="button"><svg class="ic"><use href="#i-gear"/></svg>ตั้งค่าเกม</button>
+      </nav>
+      <div class="side-links">
+        <p class="side-label">ลิงก์ด่วน</p>
+        <a class="side-link" href="/" target="_blank"><svg class="ic"><use href="#i-play"/></svg>เปิดหน้าเกม</a>
+        <a class="side-link" href="/preview" target="_blank"><svg class="ic"><use href="#i-play"/></svg>Mockup มือถือ</a>
+        <a class="side-link" href="/poster" target="_blank"><svg class="ic"><use href="#i-qr"/></svg>ป้าย QR บูธ</a>
+        <button class="side-link" id="logout" type="button"><svg class="ic"><use href="#i-out"/></svg>ออกจากระบบ</button>
+      </div>
+    </aside>
+    <div class="scrim" id="scrim" hidden></div>
+
+    <div class="content">
+      <header class="top">
+        <button class="icon-btn menu-btn" id="menu-btn" type="button" aria-label="เปิดเมนู"><svg class="ic"><use href="#i-menu"/></svg></button>
+        <div class="top-title">
+          <h1 id="page-title">ภาพรวม</h1>
+          <p class="muted small" id="page-sub"></p>
+        </div>
+        <span class="status-pill" id="status-pill"></span>
+      </header>
+
+      <main class="main">
+        <!-- ภาพรวม -->
+        <section data-pane="dashboard" class="stack">
+          <div class="today card" id="today"></div>
+          <div class="kpis" id="kpis"></div>
+          <div class="two-col">
+            <div class="card">
+              <div class="card-head"><h2>ผู้เล่นล่าสุด</h2><button class="link-btn" type="button" data-goto="players">ดูทั้งหมด →</button></div>
+              <ul class="feed" id="feed"></ul>
+            </div>
+            <div class="card">
+              <div class="card-head"><h2>ทุกวัน</h2><span class="muted small">อัปเดตทุก 10 วินาที</span></div>
+              <div class="day-list" id="day-list"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ผู้เล่น -->
+        <section data-pane="players" class="stack" hidden>
+          <div class="toolbar card">
+            <label class="search">
+              <svg class="ic"><use href="#i-search"/></svg>
+              <input id="player-q" type="search" placeholder="ค้นหาชื่อ บริษัท เบอร์ หรือโค้ด" aria-label="ค้นหาผู้เล่น">
+            </label>
+            <div class="seg" role="group" aria-label="สถานะรับรางวัล" id="player-status">
+              <button type="button" data-v="" class="on">ทั้งหมด</button>
+              <button type="button" data-v="pending">รอรับ</button>
+              <button type="button" data-v="redeemed">รับแล้ว</button>
+            </div>
+            <select id="player-day" aria-label="เลือกวัน"><option value="">ทุกวัน</option></select>
+            <button class="btn btn-primary" id="export" type="button"><svg class="ic"><use href="#i-download"/></svg>Export CSV</button>
+          </div>
+          <div class="card flush">
+            <div class="card-head pad"><h2 id="player-count">ผู้เล่น</h2></div>
+            <div class="table-wrap">
+              <table class="table players-table">
+                <thead><tr><th>ผู้เล่น</th><th>เบอร์โทร</th><th>สนใจ</th><th>ยินยอมติดต่อ</th><th>รางวัล</th><th>โค้ด</th><th>เวลาเล่น</th><th>สถานะ</th></tr></thead>
+                <tbody id="players-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- รางวัล -->
+        <section data-pane="slots" class="stack" hidden>
+          <p class="hint">ใส่จำนวนรางวัลที่จะแจกในแต่ละวัน · ผู้ได้รางวัลต่อวัน = ผลรวมของวันนั้น · ระบบจะสุ่มลำดับให้เอง (ผู้เล่นเดาไม่ได้ว่าคนที่เท่าไหร่ได้อะไร)</p>
+          <div class="card flush">
+            <div class="card-head pad">
+              <h2>ของรางวัลและจำนวนต่อวัน</h2>
+              <button class="btn btn-sm" id="reward-copy" type="button">ใช้จำนวนของ Day 1 กับทุกวัน</button>
+            </div>
+            <div class="table-wrap">
+              <table class="table reward-table" id="reward-table"></table>
+            </div>
+          </div>
+          <input type="file" id="prize-file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+          <button class="btn btn-dashed" id="reward-add" type="button"><svg class="ic"><use href="#i-plus"/></svg>เพิ่มของรางวัล</button>
+        </section>
+
+        <!-- วันและเวลา -->
+        <section data-pane="schedule" class="stack" hidden>
+          <div class="card range-card">
+            <div class="range-fields">
+              <button class="range-field" type="button" data-pick="start">
+                <span class="muted small">วันเริ่มงาน</span>
+                <b id="range-start">เลือกวัน</b>
+              </button>
+              <span class="range-arrow" aria-hidden="true">→</span>
+              <button class="range-field" type="button" data-pick="end">
+                <span class="muted small">วันสุดท้าย</span>
+                <b id="range-end">เลือกวัน</b>
+              </button>
+              <div class="range-nights" id="range-days"></div>
+            </div>
+            <div class="cal-wrap">
+              <div class="cal-nav">
+                <button class="icon-btn" id="cal-prev" type="button" aria-label="เดือนก่อนหน้า">‹</button>
+                <button class="icon-btn" id="cal-next" type="button" aria-label="เดือนถัดไป">›</button>
+              </div>
+              <div class="cals" id="cals"></div>
+            </div>
+            <p class="muted small" id="range-help">แตะวันแรก แล้วแตะวันสุดท้ายของงาน</p>
+          </div>
+          <div class="card">
+            <div class="card-head"><div><h2>เวลาเปิด-ปิดเกม</h2><p class="muted small">ใช้เวลาเดียวกันทุกวัน · เวลาไทย</p></div></div>
+            <div class="times wide">
+              <label class="field">เปิด<input type="time" id="time-open"></label>
+              <label class="field">ปิด<input type="time" id="time-close"></label>
+            </div>
+            <p class="small" id="time-note"></p>
+          </div>
+        </section>
+
+        <!-- โปรโมชัน -->
+        <section data-pane="coupons" class="stack" hidden>
+          <p class="hint">ผู้เล่นจะได้โปรโมชันที่ตรงกับ <b>บริการที่สนใจ</b> ที่เลือกในฟอร์ม · ถ้าบริการนั้นไม่มีโปรโมชันที่เปิดใช้ จะสุ่มจากรายการที่เปิดใช้แทน · ปิดได้ชั่วคราวโดยไม่ต้องลบ</p>
+          <div class="coupon-list" id="coupon-list"></div>
+          <button class="btn btn-dashed" id="coupon-add" type="button"><svg class="ic"><use href="#i-plus"/></svg>เพิ่มโปรโมชัน</button>
+        </section>
+
+        <!-- ตั้งค่า -->
+        <section data-pane="settings" class="stack" hidden>
+          <form class="card form-grid" id="settings-form">
+            <div class="card-head span"><h2>ข้อมูลเกม</h2></div>
+            <label class="field span">ชื่องาน <small>แสดงบนหน้าเกมและป้าย QR</small><input name="event_name" maxlength="100"></label>
+            <fieldset class="field">
+              <legend>สิทธิ์เล่น <small>นับต่อเบราว์เซอร์และต่อเบอร์โทร</small></legend>
+              <div class="choice">
+                <label><input type="radio" name="play_limit" value="event"><span><b>1 ครั้งตลอดงาน</b><small>แนะนำ</small></span></label>
+                <label><input type="radio" name="play_limit" value="day"><span><b>วันละ 1 ครั้ง</b><small>กลับมาเล่นวันถัดไปได้</small></span></label>
+              </div>
+            </fieldset>
+            <div class="card-head span top-gap"><h2>ปุ่ม Customer Report (CTA)</h2></div>
+            <label class="field">ข้อความบนปุ่ม<input name="cta_text" maxlength="200"></label>
+            <label class="field">ลิงก์ปลายทาง<input name="cta_url" type="url" maxlength="500" placeholder="https://"></label>
+          </form>
+                  <div class="card danger-zone">
+            <div class="card-head"><div><h2>เตรียมเริ่มงานจริง</h2><p class="muted small">ล้างผู้เล่นและผลการเล่นทั้งหมด (ข้อมูลทดสอบ) · ของรางวัล จำนวน วันเวลา และโปรโมชันยังอยู่</p></div></div>
+            <div class="row-between">
+              <span class="small" id="reset-info"></span>
+              <button class="btn btn-danger" id="reset-plays" type="button"><svg class="ic"><use href="#i-trash"/></svg>ล้างข้อมูลผู้เล่นทดสอบ</button>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Unsaved changes bar -->
+    <div class="savebar" id="savebar" hidden role="region" aria-label="บันทึกการแก้ไข">
+      <span><b>มีการแก้ไขที่ยังไม่บันทึก</b></span>
+      <div class="savebar-actions">
+        <button class="btn btn-ghost" id="save-cancel" type="button">ยกเลิก</button>
+        <button class="btn btn-primary" id="save-ok" type="button">บันทึก</button>
+      </div>
+    </div>
+  </div>
+
+  <dialog class="confirm" id="confirm">
+    <form method="dialog">
+      <h3 id="confirm-title"></h3>
+      <p class="muted" id="confirm-text"></p>
+      <div class="confirm-actions">
+        <button class="btn btn-ghost" value="no">ยกเลิก</button>
+        <button class="btn btn-primary" value="yes" id="confirm-yes">ยืนยัน</button>
+      </div>
+    </form>
+  </dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  <script src="/js/admin.js" type="module"></script>
+</body>
+</html>
