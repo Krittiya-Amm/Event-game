@@ -19,11 +19,13 @@ let timer = null;
 const fmtTime = (iso) => iso ? new Date(iso).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
 const fmtClock = (iso) => iso ? new Date(iso).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' }) : '';
 const thaiDate = (d, opts = {}) => new Date(`${d}T00:00:00+07:00`).toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Asia/Bangkok', ...opts });
-const KNOWN_ART = new Set(['doll', 'keychain', 'card']);
+// Built-in artwork for the default prizes (doll = official 3D น้องสุกี้ from Marketing's Characters folder).
+const ART_SRC = { doll: '/img/prizes/doll.png', keychain: '/img/prizes/keychain.svg', card: '/img/prizes/card.svg' };
+const KNOWN_ART = new Set(Object.keys(ART_SRC));
 const prizeById = (id) => cfg?.prizes.find((p) => p.id === id) || { id, name: id, emoji: '🎁', color: '#5b2be0' };
 // Uploaded image → built-in illustration → emoji.
 const artInner = (p) => (p.image ? `<img src="${esc(p.image)}" alt="">`
-  : KNOWN_ART.has(p.id) ? `<img src="/img/prizes/${esc(p.id)}.svg" alt="">` : esc(p.emoji));
+  : KNOWN_ART.has(p.id) ? `<img src="${ART_SRC[p.id]}" alt="">` : esc(p.emoji));
 const art = (p, cls = '') => `<span class="art ${cls}">${artInner(p)}</span>`;
 
 // ---------- feedback ----------

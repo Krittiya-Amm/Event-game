@@ -6,12 +6,13 @@ let authHeaders = {};
 let current = null; // current play
 let pollTimer = null;
 
-const PRIZE_ART = new Set(['doll', 'keychain', 'card']);
+// Built-in artwork for the default prizes (doll = official 3D น้องสุกี้ from Marketing's Characters folder).
+const ART_SRC = { doll: '/img/prizes/doll.png', keychain: '/img/prizes/keychain.svg', card: '/img/prizes/card.svg' };
 // Order: image uploaded in Backoffice → built-in illustration → emoji.
 const prizeArt = (p) => (p.image
   ? `<img src="${esc(p.image)}" alt="${esc(p.name)}" draggable="false">`
-  : PRIZE_ART.has(p.id)
-    ? `<img src="/img/prizes/${p.id}.svg" alt="${esc(p.name)}" draggable="false">`
+  : ART_SRC[p.id]
+    ? `<img src="${ART_SRC[p.id]}" alt="${esc(p.name)}" draggable="false">`
     : `<span class="emoji">${esc(p.emoji)}</span>`);
 
 // Gacha-style rarity labels (display only — real odds come from the Backoffice slots).
