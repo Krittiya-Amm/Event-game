@@ -12,7 +12,7 @@
     * { box-sizing: border-box; }
     html, body { margin: 0; height: 100%; }
     body {
-      font-family: 'Prompt', system-ui, sans-serif; color: var(--ink); overflow: hidden;
+      font-family: 'Prompt', system-ui, sans-serif; color: var(--ink); overflow-x: hidden;
       background: radial-gradient(90% 70% at 70% 30%, #3a3170 0%, #1c1838 45%, var(--bg) 100%);
       display: grid; grid-template-columns: minmax(280px, 420px) auto; align-items: center; justify-content: center; gap: 72px; padding: 24px 40px;
     }
@@ -38,7 +38,12 @@
     .seg button.on { background: rgba(255, 255, 255, .2); }
 
     /* phone */
-    .stage { height: calc(100dvh - 48px); display: grid; place-items: center; }
+    .stage { min-height: calc(100dvh - 48px); display: grid; place-items: center; }
+    .zoom { display: inline-flex; align-items: center; gap: 2px; padding: 3px; border-radius: 12px; background: rgba(255, 255, 255, .08); border: 1px solid rgba(255, 255, 255, .15); }
+    .zoom button { min-height: 34px; min-width: 36px; padding: 4px 10px; border: 0; border-radius: 9px; background: transparent; font-size: 16px; }
+    .zoom button:hover { background: rgba(255, 255, 255, .18); }
+    .zoom output { min-width: 52px; text-align: center; font: 500 13px 'Prompt', sans-serif; color: var(--soft); font-variant-numeric: tabular-nums; }
+    .zoom .fit { font-size: 13px; }
     .phone {
       --w: 390px; --h: 844px;
       position: relative; width: calc(var(--w) + 28px); height: calc(var(--h) + 28px); padding: 14px; border-radius: 62px;
@@ -98,6 +103,12 @@
         <button type="button" data-device="iphone" class="on">iPhone</button>
         <button type="button" data-device="android">Android</button>
       </div>
+      <div class="zoom" role="group" aria-label="ขนาดมือถือ">
+        <button type="button" id="zoom-out" aria-label="ย่อ">−</button>
+        <output id="zoom-label" aria-live="polite">100%</output>
+        <button type="button" id="zoom-in" aria-label="ขยาย">+</button>
+        <button type="button" class="fit" id="zoom-fit" title="ขยายให้พอดีจอ">พอดีจอ</button>
+      </div>
     </div>
     <p style="font-size:13px">ผู้เล่นใหม่ต้องใช้เบอร์โทรที่ยังไม่เคยเล่น · 1 เบอร์ เล่นได้ 1 ครั้ง</p>
   </section>
@@ -127,14 +138,31 @@
     const DEVICES = { iphone: [390, 844], android: [412, 892] };
 
     // Scale the phone to fit the window height.
+    // Size: by default the phone grows/shrinks to fill the screen (up to 1.6× real size on big screens / projectors).
+    // − / + adjust on top of that; the choice is remembered per browser.
+    const intro = document.querySelector('.intro');
+    let userZoom = 1;
+    try { userZoom = Number(localStorage.getItem('preview-zoom')) || 1; } catch { /* storage blocked */ }
     function fit() {
-      if (innerWidth <= 480) { phone.style.transform = ''; return; }
-      const h = phone.offsetHeight + 12;
-      const avail = innerHeight - 48;
-      const s = Math.min(1, avail / h);
+      if (innerWidth <= 480) { phone.style.transform = ''; phone.style.margin = ''; return; }
+      const w = phone.offsetWidth; const h = phone.offsetHeight;
+      const stacked = innerWidth <= 900;
+      const availH = stacked ? Infinity : innerHeight - 48;
+      const availW = stacked ? innerWidth - 32 : innerWidth - intro.offsetWidth - 72 - 80;
+      const auto = Math.min(availH / (h + 12), availW / (w + 12), 1.6);
+      const s = Math.max(0.4, auto * userZoom);
       phone.style.transform = `scale(${s})`;
-      phone.style.margin = `${-(1 - s) * phone.offsetHeight / 2}px ${-(1 - s) * phone.offsetWidth / 2}px`;
+      phone.style.margin = `${-(1 - s) * h / 2}px ${-(1 - s) * w / 2}px`;
+      document.getElementById('zoom-label').textContent = `${Math.round(s * 100)}%`;
     }
+    const setZoom = (z) => {
+      userZoom = Math.min(1.5, Math.max(0.5, Math.round(z * 100) / 100));
+      try { localStorage.setItem('preview-zoom', String(userZoom)); } catch { /* ignore */ }
+      fit();
+    };
+    document.getElementById('zoom-in').addEventListener('click', () => setZoom(userZoom + 0.1));
+    document.getElementById('zoom-out').addEventListener('click', () => setZoom(userZoom - 0.1));
+    document.getElementById('zoom-fit').addEventListener('click', () => setZoom(1));
     addEventListener('resize', fit);
     const tick = () => { document.getElementById('sb-time').textContent = new Date().toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Bangkok' }); };
     tick(); setInterval(tick, 30000);
