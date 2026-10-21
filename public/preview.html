@@ -78,15 +78,34 @@
       /* On a real phone there is no need for a frame — just play. */
       body { padding: 0; display: block; }
       .intro { display: none; }
-      .stage { height: 100dvh; }
+      .stage { height: calc(100dvh - 52px); min-height: 0; }
+      .mobile-bar { display: flex; }
       .phone { width: 100vw; height: 100dvh; padding: 0; border-radius: 0; box-shadow: none; background: none; transform: none !important; }
       .phone::before, .phone::after, .side-btn, .island, .home { display: none; }
       .screen { width: 100%; height: 100%; border-radius: 0; }
       .statusbar { display: none; }
     }
+    .mobile-bar {
+      display: none; height: 52px; align-items: center; justify-content: space-between; gap: 10px; padding: 0 12px 0 16px;
+      background: #1e1150; color: var(--soft); font-size: 13px;
+    }
+    .mobile-bar button {
+      display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 6px 14px; border: 0; border-radius: 999px;
+      font: 600 14px 'Prompt', sans-serif; color: #22190a; background: var(--gold); cursor: pointer;
+    }
+    .mobile-bar .ic { width: 16px; height: 16px; }
+    @media (max-width: 480px) {
+      .mobile-bar { display: flex; }
+      .stage, .phone { height: calc(100dvh - 52px); }
+    }
   </style>
 </head>
 <body>
+  <!-- Phone-sized screens hide the intro panel, so keep the "new player" control in a slim bar above the game. -->
+  <div class="mobile-bar">
+    <span>โหมดทดสอบ</span>
+    <button type="button" id="reset-mobile"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17.7 6.3A8 8 0 1 0 19.7 14h-2.1a6 6 0 1 1-1.4-6.2L13 11h7V4l-2.3 2.3Z"/></svg>เริ่มเป็นผู้เล่นใหม่</button>
+  </div>
   <section class="intro">
     <span class="kicker" id="event">Scratch & Win</span>
     <h1>ขูดบัตร<span>ลุ้นรางวัล!</span></h1>
@@ -178,7 +197,9 @@
     }));
 
     // "/?new" makes the game forget this browser's player id.
-    document.getElementById('reset').addEventListener('click', () => { frame.src = `/?new&t=${Date.now()}`; });
+    const resetPlayer = () => { frame.src = `/?new&t=${Date.now()}`; };
+    document.getElementById('reset').addEventListener('click', resetPlayer);
+    document.getElementById('reset-mobile').addEventListener('click', resetPlayer);
 
     fetch('/api/config').then((r) => r.json()).then((c) => {
       if (c.eventName) document.getElementById('event').textContent = c.eventName;
