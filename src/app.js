@@ -6,12 +6,12 @@ import { dirname, join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { openDb, getSettings, setSetting } from './db.js';
 import { createStorage } from './storage.js';
-import { seedIfEmpty } from './seed.js';
+import { seedIfEmpty, MOCK_COUPONS } from './seed.js';
 import { createGame } from './game.js';
 import { bangkokNow } from './time.js';
 import { verifyIdToken, pushResult } from './line.js';
 import { getRewards, saveRewards, saveSchedule, resetPlays, InputError } from './rewards.js';
-import { SERVICES, SERVICE_IDS, serviceLabel } from './services.js';
+import { SERVICES, SERVICE_IDS, SERVICE_LABELS, serviceLabel, serviceBackend, normalizeService } from './services.js';
 
 const PUBLIC_DIR = fileURLToPath(new URL('../public', import.meta.url));
 
@@ -110,9 +110,8 @@ export async function createApp({ dbFile = 'data/event.db', env = process.env, c
       webPlay: WEB_PLAY,
       eventName: s.event_name,
       ctaText: s.cta_text,
-      ctaUrl: s.cta_url,
       playLimit: s.play_limit,
-      services: SERVICES,
+      services: SERVICES.map(({ id, label }) => ({ id, label })), // backend names are for the sales team only
       prizes,
       coupons,
     });
@@ -149,6 +148,13 @@ export async function createApp({ dbFile = 'data/event.db', env = process.env, c
     if (!staffName) return res.status(400).json({ error: 'กรุณากรอก Staff Name' });
     const out = await game.claim(req.uid, req.body?.code, staffName);
     res.status(out.ok ? 200 : out.reason === 'not_found' ? 404 : 409).json(out);
+  });
+
+  // "นัดคุยกับทีม": the lead asks Sales to call back — shows up in Backoffice → ติดต่อกลับ.
+  app.post('/api/contact-request', player, async (req, res) => {
+    const at = await game.requestCallback(req.uid);
+    if (!at) return res.status(404).json({ error: 'กรุณาลงทะเบียนก่อน' });
+    res.json({ ok: true, at });
   });
 
   app.post('/api/reveal', player, async (req, res) => {
@@ -211,7 +217,7 @@ export async function createApp({ dbFile = 'data/event.db', env = process.env, c
   });
 
   app.get('/api/admin/overview', admin, async (req, res) => {
-    const [days, prizes, slotRows, playRows, w, players, consented, pending, recent] = await Promise.all([
+    const [days, prizes, slotRows, playRows, w, players, consented, pending, recent, callbacks] = await Promise.all([
       db.all('SELECT * FROM event_days ORDER BY day_no'),
       db.all('SELECT id, name, emoji, color, image FROM prizes ORDER BY sort'),
       db.all('SELECT day_no, prize_id, COUNT(*) AS n FROM slots GROUP BY day_no, prize_id'),
@@ -222,6 +228,7 @@ export async function createApp({ dbFile = 'data/event.db', env = process.env, c
       db.get('SELECT COUNT(*) AS n FROM plays WHERE redeemed_at IS NULL'),
       db.all(`SELECT pl.code, pl.day_no, pl.slot_no, pl.prize_id, pl.created_at, pl.redeemed_at, p.name, p.company
               FROM plays pl JOIN players p ON p.line_user_id = pl.line_user_id ORDER BY pl.id DESC LIMIT 8`),
+      db.get('SELECT COUNT(*) AS n FROM players WHERE callback_at IS NOT NULL AND callback_done_at IS NULL'),
     ]);
     const slotMap = {}; for (const r of slotRows) slotMap[`${r.day_no}:${r.prize_id}`] = r.n;
     const playMap = {}; for (const r of playRows) playMap[`${r.day_no}:${r.prize_id}`] = r;
@@ -231,6 +238,7 @@ export async function createApp({ dbFile = 'data/event.db', env = process.env, c
       players: players.n,
       consented: consented.n,
       pending: pending.n,
+      callbacks: callbacks.n,
       closeTime: w.today?.close_time ?? null,
       recent,
       prizes,
@@ -259,7 +267,8 @@ export async function createApp({ dbFile = 'data/event.db', env = process.env, c
       db.all('SELECT * FROM event_days ORDER BY day_no'),
       db.all('SELECT * FROM coupons ORDER BY sort, id'),
     ]);
-    res.json({ settings, prizes, days, coupons, services: SERVICES });
+    // Old promotions may still carry first-version service ids — show them as the matching new option.
+    res.json({ settings, prizes, days, coupons: coupons.map((c) => ({ ...c, service: normalizeService(c.service) || null })), services: SERVICES, serviceLabels: SERVICE_LABELS, mockCoupons: MOCK_COUPONS });
   });
 
   app.put('/api/admin/settings', admin, async (req, res) => {
@@ -335,7 +344,7 @@ export async function createApp({ dbFile = 'data/event.db', env = process.env, c
   });
 
   const PLAYS_EXPORT = `
-    SELECT pl.line_user_id, p.line_name, p.name, p.company, p.phone, p.consent, p.interest, pl.day_no, pl.date, pl.slot_no,
+    SELECT pl.line_user_id, p.line_name, p.name, p.company, p.phone, p.consent, p.interest, p.callback_at, p.callback_done_at, pl.day_no, pl.date, pl.slot_no,
            pr.name AS prize, pl.prize_id, pl.code, c.brand AS coupon_brand, c.benefit AS coupon_benefit,
            pl.created_at, pl.revealed_at, pl.redeemed_at, pl.redeemed_by
     FROM plays pl
@@ -358,23 +367,44 @@ export async function createApp({ dbFile = 'data/event.db', env = process.env, c
     res.json({ rows, total });
   });
 
+  // Leads who tapped "นัดคุยกับทีม" — newest first; ?status=pending|done|all
+  app.get('/api/admin/callbacks', admin, async (req, res) => {
+    const status = ['pending', 'done', 'all'].includes(req.query.status) ? req.query.status : 'pending';
+    const where = status === 'pending' ? 'AND p.callback_done_at IS NULL' : status === 'done' ? 'AND p.callback_done_at IS NOT NULL' : '';
+    const rows = await db.all(`
+      SELECT p.line_user_id, p.name, p.company, p.phone, p.interest, p.consent, p.callback_at, p.callback_done_at,
+             (SELECT pr.name FROM plays pl JOIN prizes pr ON pr.id = pl.prize_id WHERE pl.line_user_id = p.line_user_id ORDER BY pl.id DESC LIMIT 1) AS prize
+      FROM players p WHERE p.callback_at IS NOT NULL ${where} ORDER BY p.callback_at DESC LIMIT 500`);
+    res.json({ rows: rows.map((r) => ({ ...r, interestLabel: serviceLabel(r.interest), backend: serviceBackend(r.interest) })) });
+  });
+  app.post('/api/admin/callbacks/done', admin, async (req, res) => {
+    // One-way: once marked as contacted it stays that way (no undo).
+    const uid = String(req.body?.uid || '');
+    const out = await db.run('UPDATE players SET callback_done_at = ? WHERE line_user_id = ? AND callback_at IS NOT NULL AND callback_done_at IS NULL',
+      [clock().iso, uid]);
+    if (out.changes) return res.json({ ok: true });
+    const row = await db.get('SELECT callback_done_at FROM players WHERE line_user_id = ? AND callback_at IS NOT NULL', [uid]);
+    if (!row) return res.status(404).json({ error: 'ไม่พบคำขอนี้' });
+    res.status(409).json({ error: 'บันทึกว่าติดต่อแล้วก่อนหน้านี้', at: row.callback_done_at });
+  });
+
   app.get('/api/admin/export.csv', admin, async (req, res) => {
     const [rows, players] = await Promise.all([
       db.all(`${PLAYS_EXPORT} ORDER BY pl.id`),
       db.all('SELECT p.* FROM players p WHERE NOT EXISTS (SELECT 1 FROM plays pl WHERE pl.line_user_id = p.line_user_id)'),
     ]);
     const consentText = (v) => (v ? 'ยินยอม' : 'ไม่ยินยอม');
-    const header = ['Player ID (LINE/Web)', 'LINE Name', 'ชื่อ', 'บริษัท', 'เบอร์โทร', 'บริการที่สนใจ', 'ยินยอมให้ติดต่อกลับ', 'Day', 'วันที่', 'ลำดับ', 'รางวัล', 'โค้ด',
+    const header = ['Player ID (LINE/Web)', 'LINE Name', 'ชื่อ', 'บริษัท', 'เบอร์โทร', 'บริการที่สนใจ', 'บริการเบื้องหลัง', 'ยินยอมให้ติดต่อกลับ', 'ขอให้ติดต่อกลับ (นัดคุย)', 'ติดต่อแล้ว', 'Day', 'วันที่', 'ลำดับ', 'รางวัล', 'โค้ด',
       'โปรโมชัน', 'สิทธิ์โปรโมชัน', 'เวลาเล่น', 'เวลาเปิดผล', 'สถานะรับ', 'เวลารับ', 'Staff'];
     const lines = [header.map(csvCell).join(',')];
     for (const r of rows) {
-      lines.push([r.line_user_id, r.line_name, r.name, r.company, r.phone, serviceLabel(r.interest), consentText(r.consent), r.day_no, r.date, r.slot_no, r.prize, r.code,
+      lines.push([r.line_user_id, r.line_name, r.name, r.company, r.phone, serviceLabel(r.interest), serviceBackend(r.interest), consentText(r.consent), r.callback_at, r.callback_done_at, r.day_no, r.date, r.slot_no, r.prize, r.code,
         r.coupon_brand, r.coupon_benefit, r.created_at, r.revealed_at, r.redeemed_at ? 'รับแล้ว' : 'ยังไม่รับ',
         r.redeemed_at, r.redeemed_by].map(csvCell).join(','));
     }
     // Leads who registered but never got a slot (e.g. arrived after quota was full).
     for (const p of players) {
-      lines.push([p.line_user_id, p.line_name, p.name, p.company, p.phone, serviceLabel(p.interest), consentText(p.consent), '', '', '', '', '', '', '', p.created_at, '', 'ไม่ได้เล่น', '', '']
+      lines.push([p.line_user_id, p.line_name, p.name, p.company, p.phone, serviceLabel(p.interest), serviceBackend(p.interest), consentText(p.consent), p.callback_at, p.callback_done_at, '', '', '', '', '', '', '', p.created_at, '', 'ไม่ได้เล่น', '', '']
         .map(csvCell).join(','));
     }
     res.set('Content-Type', 'text/csv; charset=utf-8')

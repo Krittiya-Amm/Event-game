@@ -1,5 +1,6 @@
 import { randomInt } from 'node:crypto';
 import { getSettings } from './db.js';
+import { normalizeService } from './services.js';
 
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 
@@ -51,7 +52,7 @@ export function publicPlay(p) {
     dayNo: p.day_no,
     date: p.date,
     prize: { id: p.prize_id, name: p.prize_name, emoji: p.prize_emoji, color: p.prize_color, image: p.prize_image },
-    coupon: p.coupon_brand ? { brand: p.coupon_brand, benefit: p.coupon_benefit, service: p.coupon_service } : null,
+    coupon: p.coupon_brand ? { brand: p.coupon_brand, benefit: p.coupon_benefit, service: normalizeService(p.coupon_service) || null } : null,
     revealed: !!p.revealed_at,
     redeemed: !!p.redeemed_at,
     redeemedAt: p.redeemed_at,
@@ -60,7 +61,8 @@ export function publicPlay(p) {
 
 /** Promotion for the service the player picked; any active one if none is set up for it. */
 function pickCoupon(coupons, interest) {
-  const match = coupons.filter((c) => interest && c.service === interest);
+  const want = normalizeService(interest); // old and new ids both match
+  const match = coupons.filter((c) => want && normalizeService(c.service) === want);
   const pool = match.length ? match : coupons;
   return pool.length ? pool[randomInt(pool.length)] : null;
 }
@@ -82,7 +84,9 @@ export function createGame(db, clock) {
 
   async function state(uid) {
     const [s, w, player, last] = await Promise.all([getSettings(db), window(), db.get(SQL.player, [uid]), db.get(SQL.playByUser, [uid])]);
-    const base = { days: w.days, registered: !!player, playerName: player?.name || null, lastPlay: publicPlay(last), now: w.now };
+    // `me` = the player's own lead details (only ever returned to that same player) for the survey hand-off.
+    const me = player ? { name: player.name, company: player.company, phone: player.phone, callbackAt: player.callback_at || null } : null;
+    const base = { days: w.days, registered: !!player, playerName: player?.name || null, me, lastPlay: publicPlay(last), now: w.now };
     if (!w.open) return { ...base, status: 'closed', next: w.next };
     const [{ n: used }, { n: limit }, prior] = await Promise.all([
       db.get(SQL.usedToday, [w.day.day_no]), db.get(SQL.slotCount, [w.day.day_no]), existingPlay(db, uid, w.day.day_no, s.play_limit),
@@ -164,5 +168,11 @@ export function createGame(db, clock) {
     return { ok: true, play: publicPlay(p) };
   }
 
-  return { window, state, register, play, reveal, lookup, redeem, claim };
+  /** "นัดคุยกับทีม": flag the lead for a call-back (first tap wins; repeats are no-ops). → ISO time or null */
+  async function requestCallback(uid) {
+    await db.run('UPDATE players SET callback_at = COALESCE(callback_at, ?) WHERE line_user_id = ?', [clock().iso, uid]);
+    return (await db.get('SELECT callback_at FROM players WHERE line_user_id = ?', [uid]))?.callback_at || null;
+  }
+
+  return { window, state, register, play, reveal, lookup, redeem, claim, requestCallback };
 }

@@ -207,6 +207,12 @@
         </div>
       </div>
 
+      <a class="survey" id="survey-link" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" hidden>
+        <span class="survey-icon" aria-hidden="true"><svg class="ic"><use href="#i-chart"/></svg></span>
+        <span class="survey-text"><b>ทำแบบสอบถามต่อ</b><small>บอกความต้องการของธุรกิจคุณ ใช้เวลาไม่นาน · กรอกชื่อและเบอร์ไว้ให้แล้ว</small></span>
+        <span class="cta-arrow" aria-hidden="true"><svg class="ic"><use href="#i-back"/></svg></span>
+      </a>
+
       <div class="coupon" id="coupon-card" hidden>
         <div class="coupon-tag"><svg class="ic"><use href="#i-ticket"/></svg> <span data-bind="couponTag">สิทธิพิเศษของคุณ</span></div>
         <div class="coupon-brand" data-bind="couponBrand"></div>
@@ -214,9 +220,17 @@
         <div class="muted small">แคปหน้าจอเก็บไว้ แล้วแจ้งทีมขายเพื่อใช้สิทธิ์</div>
       </div>
 
-      <a class="cta" data-cta target="_blank" rel="noopener" hidden>
-        <span class="cta-text" data-bind="ctaText"></span><span class="cta-arrow" aria-hidden="true"><svg class="ic"><use href="#i-back"/></svg></span>
-      </a>
+      <!-- "นัดคุยกับทีม": records a call-back request for Sales (Backoffice → ติดต่อกลับ), no external link -->
+      <div class="cta-wrap" data-cta hidden>
+        <button class="cta" type="button" data-cta-btn>
+          <span class="cta-text" data-bind="ctaText"></span><span class="cta-arrow" aria-hidden="true"><svg class="ic"><use href="#i-back"/></svg></span>
+        </button>
+        <div class="cta-done" data-cta-done hidden>
+          <span class="cta-done-ic" aria-hidden="true"><svg class="ic"><use href="#i-check"/></svg></span>
+          <span>ส่งคำขอนัดคุยแล้ว · ทีมงานจะติดต่อกลับ</span>
+        </div>
+        <small class="err" data-cta-err role="alert"></small>
+      </div>
     </section>
 
     <!-- Out of rewards -->
@@ -228,9 +242,17 @@
         <p class="eyebrow dark">แต่ยังรับโปรโมชันได้</p>
         <ul class="coupon-list" data-bind="couponList"></ul>
       </div>
-      <a class="cta" data-cta target="_blank" rel="noopener" hidden>
-        <span class="cta-text" data-bind="ctaText"></span><span class="cta-arrow" aria-hidden="true"><svg class="ic"><use href="#i-back"/></svg></span>
-      </a>
+      <!-- "นัดคุยกับทีม": records a call-back request for Sales (Backoffice → ติดต่อกลับ), no external link -->
+      <div class="cta-wrap" data-cta hidden>
+        <button class="cta" type="button" data-cta-btn>
+          <span class="cta-text" data-bind="ctaText"></span><span class="cta-arrow" aria-hidden="true"><svg class="ic"><use href="#i-back"/></svg></span>
+        </button>
+        <div class="cta-done" data-cta-done hidden>
+          <span class="cta-done-ic" aria-hidden="true"><svg class="ic"><use href="#i-check"/></svg></span>
+          <span>ส่งคำขอนัดคุยแล้ว · ทีมงานจะติดต่อกลับ</span>
+        </div>
+        <small class="err" data-cta-err role="alert"></small>
+      </div>
     </section>
 
     <!-- Closed -->
@@ -267,6 +289,16 @@
         <button class="btn btn-ghost-dark" value="cancel" type="button" id="staff-cancel">ยกเลิก</button>
         <button class="btn btn-ok" type="submit">ยืนยันรับรางวัลแล้ว</button>
       </div>
+    </form>
+  </dialog>
+
+  <!-- Thank-you after "นัดคุยกับทีม" -->
+  <dialog id="thanks-dialog" class="popup" aria-labelledby="thanks-title">
+    <form method="dialog" class="popup-body">
+      <span class="popup-ic" aria-hidden="true"><svg class="ic"><use href="#i-check"/></svg></span>
+      <h3 id="thanks-title">ขอบคุณค่ะ เราได้รับคำขอแล้ว</h3>
+      <p>ทีมงานจะรีบติดต่อกลับหาคุณ<span data-bind="ctaPhone"></span></p>
+      <button class="btn btn-primary" value="ok" autofocus><span>ตกลง</span></button>
     </form>
   </dialog>
 

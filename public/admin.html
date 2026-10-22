@@ -3,6 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#ffffff">
   <title>Backoffice · Scratch Card</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -32,6 +34,10 @@
     <symbol id="i-eye" viewBox="0 0 24 24"><path fill="currentColor" d="M12 5C7 5 2.7 8.1 1 12c1.7 3.9 6 7 11 7s9.3-3.1 11-7c-1.7-3.9-6-7-11-7Zm0 11.5a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9Zm0-7a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z"/></symbol>
     <symbol id="i-gift" viewBox="0 0 24 24"><path fill="currentColor" d="M20 7h-2.2A3 3 0 0 0 12 3.8 3 3 0 0 0 6.2 7H4a1 1 0 0 0-1 1v3a1 1 0 0 0 1 1h1v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-8h1a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1Zm-5-2a1 1 0 1 1 0 2h-2a2 2 0 0 1 2-2ZM9 5a2 2 0 0 1 2 2H9a1 1 0 0 1 0-2Zm2 15H7v-8h4v8Zm0-10H5V9h6v1Zm6 10h-4v-8h4v8Zm2-10h-6V9h6v1Z"/></symbol>
     <symbol id="i-camera" viewBox="0 0 24 24"><path fill="currentColor" d="M9 3 7.2 5H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3.2L15 3H9Zm3 15a5 5 0 1 1 0-10 5 5 0 0 1 0 10Zm0-2a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><path fill="currentColor" d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1l-2.3 2.2Z"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" d="M7 7l10 10M17 7 7 17"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" d="M6 12h12"/></symbol>
+    <symbol id="i-add" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" d="M12 6v12M6 12h12"/></symbol>
     <symbol id="i-clock" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16Zm1-13h-2v6l5 3 1-1.7-4-2.4V7Z"/></symbol>
   </svg>
 
@@ -69,6 +75,7 @@
       <nav class="nav" aria-label="เมนูหลัก">
         <button class="nav-item" data-tab="dashboard" type="button"><svg class="ic"><use href="#i-home"/></svg>ภาพรวม</button>
         <button class="nav-item" data-tab="players" type="button"><svg class="ic"><use href="#i-users"/></svg>ผู้เล่น<span class="nav-badge" id="nav-pending" hidden></span></button>
+        <button class="nav-item" data-tab="callbacks" type="button"><svg class="ic"><use href="#i-phone"/></svg>ติดต่อกลับ<span class="nav-badge" id="nav-callbacks" hidden></span></button>
         <button class="nav-item" data-tab="slots" type="button"><svg class="ic"><use href="#i-grid"/></svg>รางวัล</button>
         <button class="nav-item" data-tab="schedule" type="button"><svg class="ic"><use href="#i-cal"/></svg>วันและเวลา</button>
         <button class="nav-item" data-tab="coupons" type="button"><svg class="ic"><use href="#i-ticket"/></svg>โปรโมชัน</button>
@@ -112,6 +119,21 @@
         </section>
 
         <!-- ผู้เล่น -->
+        <!-- ติดต่อกลับ -->
+        <section data-pane="callbacks" class="stack" hidden>
+          <p class="hint">ผู้เล่นที่กด "นัดคุยกับทีม" ในหน้าเกม · โทรกลับแล้วกด "ติดต่อแล้ว" เพื่อเก็บสถานะ (ดาวน์โหลดรวมได้จาก Export CSV ในเมนูผู้เล่น)</p>
+          <div class="toolbar card">
+            <div class="seg" role="group" aria-label="สถานะการติดต่อ" id="cb-status">
+              <button type="button" data-v="pending" class="on">รอติดต่อ</button>
+              <button type="button" data-v="done">ติดต่อแล้ว</button>
+              <button type="button" data-v="all">ทั้งหมด</button>
+            </div>
+          </div>
+          <div class="card flush">
+            <div class="table-wrap"><table class="table cb-table" id="cb-table"></table></div>
+          </div>
+        </section>
+
         <section data-pane="players" class="stack" hidden>
           <div class="toolbar card">
             <label class="search">
@@ -139,18 +161,20 @@
 
         <!-- รางวัล -->
         <section data-pane="slots" class="stack" hidden>
-          <p class="hint">ใส่จำนวนรางวัลที่จะแจกในแต่ละวัน · ผู้ได้รางวัลต่อวัน = ผลรวมของวันนั้น · ระบบจะสุ่มลำดับให้เอง (ผู้เล่นเดาไม่ได้ว่าคนที่เท่าไหร่ได้อะไร)</p>
-          <div class="card flush">
-            <div class="card-head pad">
-              <h2>ของรางวัลและจำนวนต่อวัน</h2>
-              <button class="btn btn-sm" id="reward-copy" type="button">ใช้จำนวนของ Day 1 กับทุกวัน</button>
+          <input type="file" id="prize-file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+          <div class="card" id="day-card">
+            <div class="card-head">
+              <div><h2>ของรางวัลและจำนวนต่อวัน</h2><p class="muted small">เลือกวัน แล้วใส่จำนวนของแต่ละรางวัล · แตะที่รูปเพื่อเปลี่ยน · ระบบสุ่มลำดับให้เอง หรือระบุว่าผู้เล่นคนที่เท่าไหร่ได้รางวัลก็ได้</p></div>
+              <button class="btn btn-primary" id="reward-add" type="button"><svg class="ic"><use href="#i-plus"/></svg>เพิ่มของรางวัล</button>
             </div>
-            <div class="table-wrap">
-              <table class="table reward-table" id="reward-table"></table>
+            <div class="day-tabs" id="day-tabs" role="tablist" aria-label="เลือกวัน"></div>
+            <div class="day-summary" id="day-summary"></div>
+            <div class="alloc-head" aria-hidden="true"><span>ของรางวัล</span><span>จำนวน</span><span>ล็อกลำดับผู้ได้รางวัล <small>(ไม่บังคับ)</small></span><span></span></div>
+            <div class="alloc-list" id="alloc-list"></div>
+            <div class="day-actions">
+              <button class="btn btn-sm" id="reward-copy" type="button">ใช้จำนวนของวันนี้กับทุกวันที่ยังไม่จบ</button>
             </div>
           </div>
-          <input type="file" id="prize-file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
-          <button class="btn btn-dashed" id="reward-add" type="button"><svg class="ic"><use href="#i-plus"/></svg>เพิ่มของรางวัล</button>
         </section>
 
         <!-- วันและเวลา -->
@@ -190,6 +214,7 @@
         <!-- โปรโมชัน -->
         <section data-pane="coupons" class="stack" hidden>
           <p class="hint">ผู้เล่นจะได้โปรโมชันที่ตรงกับ <b>บริการที่สนใจ</b> ที่เลือกในฟอร์ม · ถ้าบริการนั้นไม่มีโปรโมชันที่เปิดใช้ จะสุ่มจากรายการที่เปิดใช้แทน · ปิดได้ชั่วคราวโดยไม่ต้องลบ</p>
+          <div class="coupon-head" aria-hidden="true"><span>แบรนด์</span><span>สิทธิ์ที่ได้รับ</span><span>บริการที่สนใจ <small>(ตัวเลือกเดียวกับหน้าเกม)</small></span><span>สถานะ</span><span></span></div>
           <div class="coupon-list" id="coupon-list"></div>
           <button class="btn btn-dashed" id="coupon-add" type="button"><svg class="ic"><use href="#i-plus"/></svg>เพิ่มโปรโมชัน</button>
         </section>
@@ -206,9 +231,8 @@
                 <label><input type="radio" name="play_limit" value="day"><span><b>วันละ 1 ครั้ง</b><small>กลับมาเล่นวันถัดไปได้</small></span></label>
               </div>
             </fieldset>
-            <div class="card-head span top-gap"><h2>ปุ่ม Customer Report (CTA)</h2></div>
+            <div class="card-head span top-gap"><div><h2>ปุ่มนัดคุยกับทีม (CTA)</h2><p class="muted small">ผู้เล่นกดแล้วจะขึ้นในเมนู "ติดต่อกลับ" ให้ทีมโทรกลับ · หน้าเกมแสดงข้อความขอบคุณ</p></div></div>
             <label class="field">ข้อความบนปุ่ม<input name="cta_text" maxlength="200"></label>
-            <label class="field">ลิงก์ปลายทาง<input name="cta_url" type="url" maxlength="500" placeholder="https://"></label>
           </form>
                   <div class="card danger-zone">
             <div class="card-head"><div><h2>เตรียมเริ่มงานจริง</h2><p class="muted small">ล้างผู้เล่นและผลการเล่นทั้งหมด (ข้อมูลทดสอบ) · ของรางวัล จำนวน วันเวลา และโปรโมชันยังอยู่</p></div></div>

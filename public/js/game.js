@@ -5,6 +5,51 @@ let config = null;
 let authHeaders = {};
 let current = null; // current play (always the one the server assigned)
 let pollTimer = null;
+let me = null; // this player's own { name, company, phone } from /api/state — for the survey link only
+
+// Survey hand-off: details go after "#" so the browser never sends them to any server, and the survey page
+// strips them on open. Only ever used as a button on this page — never share this URL in chat/LINE.
+const SURVEY_URL = 'https://martech-discovery-quest.vercel.app/?src=scratch';
+/** "นัดคุยกับทีม" button ↔ thank-you state. Only for registered players (the request is tied to their lead). */
+function syncCta() {
+  const done = !!me?.callbackAt;
+  $$('[data-cta]').forEach((w) => {
+    w.hidden = !me;
+    $('[data-cta-btn]', w).hidden = done;
+    $('[data-cta-done]', w).hidden = !done;
+  });
+  bind('ctaPhone', me?.phone ? ` ทางเบอร์ ${me.phone.replace(/^(\d{3})(\d{3})(\d+)$/, '$1-$2-$3')}` : '');
+}
+let requesting = false;
+// Tap outside the popup card closes it too (Esc / back already do).
+$('#thanks-dialog').addEventListener('click', (e) => { if (e.target === e.currentTarget) e.currentTarget.close(); });
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-cta-btn]');
+  if (!btn || requesting || !me) return;
+  const err = $('[data-cta-err]', btn.closest('[data-cta]'));
+  err.textContent = '';
+  requesting = true; btn.disabled = true;
+  try {
+    const { ok, data } = await api('/api/contact-request', { method: 'POST' });
+    if (!ok) throw new Error(data.error || 'ส่งคำขอไม่สำเร็จ');
+    me.callbackAt = data.at;
+    syncCta();
+    sound.done();
+    const dlg = $('#thanks-dialog');
+    if (dlg.showModal && !dlg.open) dlg.showModal();
+  } catch (ex) {
+    err.textContent = ex.status ? 'ส่งคำขอไม่สำเร็จ กรุณาลองใหม่' : (ex.message || 'การเชื่อมต่อขัดข้อง ลองใหม่อีกครั้ง');
+  } finally { requesting = false; btn.disabled = false; }
+});
+
+function syncSurvey() {
+  syncCta();
+  const a = $('#survey-link');
+  if (!me) { a.hidden = true; a.removeAttribute('href'); return; }
+  const data = new URLSearchParams({ name: me.name || '', company: me.company || '', phone: me.phone || '' });
+  a.href = `${SURVEY_URL}#${data.toString()}`;
+  a.hidden = false;
+}
 const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // Built-in artwork for the default prizes (doll = official 3D น้องสุกี้ from Marketing's Characters folder).
@@ -228,7 +273,6 @@ function renderStatic() {
   const perDay = config.playLimit === 'day';
   bind('playRule', perDay ? 'วันละ 1 สิทธิ์ / เบอร์' : '1 สิทธิ์ / 1 เบอร์โทร');
   bind('playRuleShort', perDay ? 'วันละ 1 ครั้ง' : '1 ครั้งตลอดงาน');
-  $$('[data-cta]').forEach((a) => { if (config.ctaUrl) { a.href = config.ctaUrl; a.hidden = false; } });
 }
 
 function setPrize(play) {
@@ -313,6 +357,8 @@ async function refresh() {
   show('loading');
   try {
     const { data } = await api('/api/state');
+    me = data.me || null;
+    syncSurvey();
     route(data);
   } catch (err) {
     // A stale/rejected web device id → start over with a fresh one once instead of showing an error.
@@ -369,6 +415,8 @@ regForm.addEventListener('submit', async (e) => {
       focusFirstError(form);
       return;
     }
+    me = data.me || me;
+    syncSurvey();
     if (data.status === 'ready') showPick();
     else route(data);
   } catch (err) { fail(err); } finally { btn.disabled = false; btn.classList.remove('busy'); }
@@ -464,7 +512,8 @@ async function startPlay(card = null) {
   } catch (err) { fail(err); } finally { clearTimeout(slow); playing = false; }
 }
 
-const REVEAL_AT = 0.5; // share of the foil actually cleared
+const REVEAL_AT = 0.5; // share of the foil actually cleared → auto reveal
+const UNBLUR_AT = 0.2; // the prize under the foil sharpens after this much
 let scratchSession = 0;
 
 function startScratch({ from = null } = {}) {
@@ -478,7 +527,7 @@ function startScratch({ from = null } = {}) {
   const canvas = $('#scratch-canvas');
   canvas.classList.remove('done');
   const prize = $('#scratch-prize');
-  prize.classList.add('hidden-prize');
+  prize.classList.add('hidden-prize', 'blurred'); // blurred until 20% is scratched
   $('.gold-sweep', prize).classList.remove('go');
   const frame = $('#ticket-frame');
   frame.classList.remove('revealed');
@@ -536,7 +585,7 @@ function celebrate(session) {
   $('#scratch-canvas').classList.add('done');
   $('#foil-sheen').classList.add('off');
   $('#scratch-hint').classList.add('quiet');
-  $('#scratch-prize').classList.remove('hidden-prize');
+  $('#scratch-prize').classList.remove('hidden-prize', 'blurred');
   $('#ticket-frame').classList.add('revealed');
   $('#scratch-kicker').textContent = TIERS[tier].label;
   $('#scratch-title').textContent = 'ยินดีด้วย คุณได้รับรางวัล';
@@ -774,6 +823,7 @@ function setupScratch(canvas, onThreshold) {
     lastCheck = performance.now();
     const p = cleared();
     setMeter(Math.min(100, (p / REVEAL_AT) * 100));
+    if (p >= UNBLUR_AT) $('#scratch-prize').classList.remove('blurred');
     if (p >= REVEAL_AT) { lock(); onThreshold(prev || lastMove); }
   }
 

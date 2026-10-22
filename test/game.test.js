@@ -47,7 +47,7 @@ async function boot({ limit = 'event' } = {}) {
     return { status: res.status, body: res.headers.get('content-type')?.includes('json') ? await res.json() : await res.text() };
   };
   let phoneSeq = 0;
-  const register = (uid, phone = `08${String(10000000 + ++phoneSeq).slice(-8)}`, consent = true, interest = 'line') =>
+  const register = (uid, phone = `08${String(10000000 + ++phoneSeq).slice(-8)}`, consent = true, interest = 'line_oa') =>
     call('/api/register', { uid, method: 'POST', body: { name: `Player ${uid}`, company: 'ACME', phone, consent, interest } });
   const login = await call('/api/admin/login', { method: 'POST', body: { username: 'martech', password: 'admin-test' } });
   const admin = { 'x-admin-key': login.body.token };
@@ -280,15 +280,26 @@ test('interested service is required, stored, and decides the promotion', async 
     const bad = await t.register('W-svc-missing', '0833333333', true, '');
     assert.equal(bad.status, 400);
     assert.ok(bad.body.errors.interest);
-    const expect = { line: 'LINE', influencer: 'Wizemoves Influencer', ads: 'Wizemoves Ads', content: 'Wizemoves Content', website: 'Wizemoves Martech', warehouse: 'Akita' };
-    for (const [svc, brand] of Object.entries(expect)) {
-      const uid = `W-svc-${svc}-00`;
+    // Old (first-version) ids are no longer accepted from the form.
+    assert.equal((await t.register('W-svc-legacy', '0833333334', true, 'line')).status, 400);
+    const expect = { line_oa: ['LINE'], ads_content: ['Wizemoves Influencer', 'Wizemoves Ads', 'Wizemoves Content'], line_martech: ['Wizemoves Martech'], warehouse: ['Akita'] };
+    for (const [svc, brands] of Object.entries(expect)) {
+      const uid = `W-svc-${svc.replace(/_/g, '-')}-00`; // device ids allow letters, digits and '-'
       assert.equal((await t.register(uid, undefined, true, svc)).status, 200);
       const { body } = await t.call('/api/play', { uid, method: 'POST' });
-      assert.equal(body.play.coupon.brand, brand, `${svc} → ${brand}`);
+      assert.ok(brands.includes(body.play.coupon.brand), `${svc} → ${body.play.coupon.brand}`);
+      assert.equal(body.play.coupon.service, svc);
     }
+    // A promotion still tagged with an old id matches the new option.
+    await t.db.run("UPDATE coupons SET service = 'warehouse' WHERE brand = 'Akita'");
+    await t.db.run("UPDATE coupons SET service = 'line' WHERE brand = 'LINE'");
+    await t.register('W-svc-oldcoupon', undefined, true, 'line_oa');
+    assert.equal((await t.call('/api/play', { uid: 'W-svc-oldcoupon', method: 'POST' })).body.play.coupon.brand, 'LINE');
+    const cfg = (await t.call('/api/admin/config', { headers: t.admin })).body;
+    assert.equal(cfg.coupons.find((c) => c.brand === 'LINE').service, 'line_oa');
+    assert.equal(cfg.services.length, 11);
     const csv = await t.call('/api/admin/export.csv', { headers: t.admin });
-    assert.match(csv.body, /W-svc-warehouse-00,.*,คลังสินค้า,/);
+    assert.match(csv.body, /W-svc-warehouse-00,.*,คลังสินค้าและขนส่ง,"?Akita, Patona"?,/);
   } finally { await t.close(); }
 });
 
@@ -366,5 +377,81 @@ test('backoffice login: username + password give a session; wrong ones and old s
     const h = { 'x-admin-key': ok.body.token };
     assert.equal((await t.call('/api/admin/logout', { method: 'POST', headers: h })).status, 200);
     assert.equal((await t.call('/api/admin/config', { headers: h })).status, 401, 'logged-out token is dead');
+  } finally { await t.close(); }
+});
+
+test('rewards: locked positions put a prize on exact player numbers; the rest stays random', async () => {
+  const t = await boot();
+  try {
+    const put = (body) => t.call('/api/admin/rewards', { method: 'PUT', headers: t.admin, body });
+    const cur = (await t.call('/api/admin/rewards', { headers: t.admin })).body;
+    const counts = { ...cur.counts, 1: { doll: 3, keychain: 5, card: 42 } };
+    // Validation: more positions than the prize count, duplicates across prizes, beyond the day's total.
+    assert.equal((await put({ prizes: cur.prizes, counts, locks: { 1: { doll: '1, 2, 3, 4' } } })).status, 400);
+    assert.equal((await put({ prizes: cur.prizes, counts, locks: { 1: { doll: '7', keychain: '7' } } })).status, 400);
+    assert.equal((await put({ prizes: cur.prizes, counts, locks: { 1: { doll: '51' } } })).status, 400);
+    assert.equal((await put({ prizes: cur.prizes, counts, locks: { 1: { doll: 'abc' } } })).status, 400);
+
+    assert.equal((await put({ prizes: cur.prizes, counts, locks: { 1: { doll: '10, 25 40', keychain: [1] } } })).status, 200);
+    const saved = (await t.call('/api/admin/rewards', { headers: t.admin })).body;
+    assert.deepEqual(saved.locks, { 1: { doll: [10, 25, 40], keychain: [1] } });
+    const at = Object.fromEntries((await t.db.all('SELECT slot_no, prize_id FROM slots WHERE day_no = 1', [])).map((r) => [r.slot_no, r.prize_id]));
+    assert.equal(at[10], 'doll'); assert.equal(at[25], 'doll'); assert.equal(at[40], 'doll'); assert.equal(at[1], 'keychain');
+    assert.equal(Object.values(at).filter((p) => p === 'doll').length, 3);
+    assert.equal(Object.values(at).length, 50);
+
+    // Player 1 gets the keychain; saving again without `locks` keeps the locks and the played slot.
+    await t.register('W-lock-0001');
+    assert.equal((await t.call('/api/play', { uid: 'W-lock-0001', method: 'POST' })).body.play.prize.id, 'keychain');
+    assert.equal((await put({ prizes: cur.prizes, counts })).status, 200);
+    assert.deepEqual((await t.call('/api/admin/rewards', { headers: t.admin })).body.locks, { 1: { doll: [10, 25, 40], keychain: [1] } });
+    // A played position cannot be re-locked to a different prize.
+    assert.equal((await put({ prizes: cur.prizes, counts, locks: { 1: { doll: '1' } } })).status, 400);
+    // Clearing the locks works.
+    assert.equal((await put({ prizes: cur.prizes, counts, locks: {} })).status, 200);
+    assert.deepEqual((await t.call('/api/admin/rewards', { headers: t.admin })).body.locks, {});
+  } finally { await t.close(); }
+});
+
+test('state returns the player\'s own lead details (for the survey link) and nobody else\'s', async () => {
+  const t = await boot();
+  try {
+    assert.equal((await t.call('/api/state', { uid: 'W-me-000001' })).body.me, null);
+    await t.register('W-me-000001', '0811112222');
+    const mine = (await t.call('/api/state', { uid: 'W-me-000001' })).body.me;
+    assert.deepEqual(mine, { name: 'Player W-me-000001', company: 'ACME', phone: '0811112222', callbackAt: null });
+    assert.equal((await t.call('/api/state', { uid: 'W-me-000002' })).body.me, null);
+  } finally { await t.close(); }
+});
+
+test('"นัดคุยกับทีม": player requests a call-back once; Backoffice lists it and marks it contacted', async () => {
+  const t = await boot();
+  try {
+    assert.equal((await t.call('/api/contact-request', { uid: 'W-cb-nobody01', method: 'POST' })).status, 404); // not registered
+    await t.register('W-cb-player01', '0812223333', false, 'warehouse');
+    const first = await t.call('/api/contact-request', { uid: 'W-cb-player01', method: 'POST' });
+    assert.equal(first.status, 200);
+    t.clock.set('2026-11-01', '11:00');
+    const again = await t.call('/api/contact-request', { uid: 'W-cb-player01', method: 'POST' });
+    assert.equal(again.body.at, first.body.at); // first tap wins
+    assert.equal((await t.call('/api/state', { uid: 'W-cb-player01' })).body.me.callbackAt, first.body.at);
+
+    const list = (await t.call('/api/admin/callbacks', { headers: t.admin })).body.rows;
+    assert.equal(list.length, 1);
+    assert.equal(list[0].phone, '0812223333');
+    assert.equal(list[0].interestLabel, 'คลังสินค้าและขนส่ง');
+    assert.equal((await t.call('/api/admin/overview', { headers: t.admin })).body.callbacks, 1);
+    assert.equal((await t.call('/api/admin/callbacks')).status, 401); // admin only
+
+    assert.equal((await t.call('/api/admin/callbacks/done', { method: 'POST', headers: t.admin, body: { uid: 'W-cb-player01' } })).status, 200);
+    // final: marking again or trying to undo changes nothing
+    t.clock.set('2026-11-01', '12:00');
+    assert.equal((await t.call('/api/admin/callbacks/done', { method: 'POST', headers: t.admin, body: { uid: 'W-cb-player01', done: false } })).status, 409);
+    assert.equal((await t.call('/api/admin/callbacks', { headers: t.admin })).body.rows.length, 0);
+    assert.equal((await t.call('/api/admin/callbacks?status=done', { headers: t.admin })).body.rows.length, 1);
+    assert.equal((await t.call('/api/admin/overview', { headers: t.admin })).body.callbacks, 0);
+    const csv = await t.call('/api/admin/export.csv', { headers: t.admin });
+    assert.match(csv.body, /ขอให้ติดต่อกลับ \(นัดคุย\)/);
+    assert.match(csv.body, /W-cb-player01,.*2026-11-01T10:00:00\+07:00,2026-11-01T11:00:00\+07:00/);
   } finally { await t.close(); }
 });

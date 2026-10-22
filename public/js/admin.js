@@ -9,6 +9,7 @@ const store = {
 };
 const clone = (v) => JSON.parse(JSON.stringify(v));
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const todayIso = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }); // YYYY-MM-DD in Bangkok
 
 let key = store.get('admin-key');
 let cfg = null;        // { settings, prizes, days, coupons }
@@ -131,12 +132,13 @@ window.addEventListener('beforeunload', (e) => { if (editors[pane]?.isDirty()) {
 const PAGES = {
   dashboard: ['ภาพรวม', 'สถานะเกมและรางวัลแบบเรียลไทม์'],
   players: ['ผู้เล่น', 'รายชื่อ Lead ผลรางวัล และสถานะการรับ'],
+  callbacks: ['ติดต่อกลับ', 'ผู้เล่นที่กด "นัดคุยกับทีม" รอทีมขายโทรกลับ'],
   slots: ['รางวัล', 'ของรางวัลและจำนวนที่แจกในแต่ละวัน'],
   schedule: ['วันและเวลา', 'เลือกช่วงวันจัดงานและเวลาเปิดเกม'],
   coupons: ['โปรโมชัน', 'Digital coupon ที่สุ่มให้ผู้ได้รางวัล'],
-  settings: ['ตั้งค่าเกม', 'ชื่องาน สิทธิ์เล่น และปุ่ม CTA'],
+  settings: ['ตั้งค่าเกม', 'ชื่องาน สิทธิ์เล่น และปุ่มนัดคุยกับทีม'],
 };
-const RENDER = { dashboard: renderDashboard, players: showPlayers, slots: showSlots, schedule: showSchedule, coupons: showCoupons, settings: showSettings };
+const RENDER = { dashboard: renderDashboard, players: showPlayers, callbacks: showCallbacks, slots: showSlots, schedule: showSchedule, coupons: showCoupons, settings: showSettings };
 
 async function openTab(name) {
   if (!PAGES[name]) name = 'dashboard';
@@ -173,6 +175,10 @@ async function refreshOverview() {
   nb.hidden = !overview.pending;
   nb.textContent = overview.pending;
   nb.title = `${overview.pending} คนยังไม่ได้รับรางวัล`;
+  const cb = $('#nav-callbacks');
+  cb.hidden = !overview.callbacks;
+  cb.textContent = overview.callbacks;
+  cb.title = `${overview.callbacks} คนรอให้ติดต่อกลับ`;
   if (pane === 'dashboard') renderDashboard();
 }
 
@@ -206,15 +212,22 @@ function renderDashboard() {
       <p class="muted small">ปรับวันและเวลาได้ที่ <button class="link-btn" type="button" data-goto="schedule">วันและเวลา</button></p></div>`;
   }
 
+  // KPI cards: tinted icon tile + label, big number, optional sub line
+  const kpi = ({ ic, tone, label, value, sub = '', go = '', warn = false }) => {
+    const inner = `<span class="l"><span class="kpi-ic ${tone}">${icon(ic)}</span>${label}</span>
+      <span class="v">${value}</span>${sub ? `<span class="s">${sub}</span>` : ''}`;
+    return go ? `<button class="kpi t-${tone} ${warn ? 'warn' : ''}" type="button" data-goto-${go}>${inner}</button>`
+      : `<div class="kpi t-${tone}">${inner}</div>`;
+  };
   $('#kpis').innerHTML = [
-    ['users', `ลงทะเบียน (Lead) · ยินยอม ${d.consented}`, d.players, ''],
-    ['gift', 'ได้รางวัลทั้งหมด', totalPlayed, ''],
-    ['check', 'รับรางวัลแล้ว', totalRedeemed, ''],
-    ['clock', 'รอรับรางวัล', d.pending, d.pending ? 'warn' : ''],
-  ].map(([ic, l, v, cls]) => (ic === 'clock'
-    ? `<button class="kpi ${cls}" type="button" data-goto-pending><span class="l">${icon(ic)}${l}</span><span class="v">${v}</span></button>`
-    : `<div class="kpi ${cls}"><span class="l">${icon(ic)}${l}</span><span class="v">${v}</span></div>`)).join('');
-  $('[data-goto-pending]').onclick = () => { playerFilter.status = 'pending'; openTab('players'); };
+    kpi({ ic: 'users', tone: 'blue', label: 'ลงทะเบียน (Lead)', value: d.players, sub: `ยินยอมให้ติดต่อ ${d.consented} คน` }),
+    kpi({ ic: 'gift', tone: 'cyan', label: 'ได้รางวัลทั้งหมด', value: totalPlayed }),
+    kpi({ ic: 'check', tone: 'navy', label: 'รับรางวัลแล้ว', value: totalRedeemed }),
+    kpi({ ic: 'clock', tone: 'orange', label: 'รอรับรางวัล', value: d.pending, go: 'clock', warn: d.pending > 0 }),
+    kpi({ ic: 'phone', tone: 'amber', label: 'รอติดต่อกลับ', value: d.callbacks || 0, go: 'phone', warn: d.callbacks > 0 }),
+  ].join('');
+  $('[data-goto-clock]').onclick = () => { playerFilter.status = 'pending'; openTab('players'); };
+  $('[data-goto-phone]').onclick = () => { cbStatus = 'pending'; openTab('callbacks'); };
 
   $('#feed').innerHTML = d.recent.length ? d.recent.map((r) => {
     const p = prizeById(r.prize_id);
@@ -252,8 +265,8 @@ async function loadPlayers() {
     return `<tr>
       <td><div class="person"><b>${esc(r.name)}</b><span>${esc(r.company)}</span></div></td>
       <td class="nowrap">${esc(r.phone)}</td>
-      <td class="nowrap">${esc(cfg.services.find((s) => s.id === r.interest)?.label || '-')}</td>
-      <td>${r.consent ? `<span class="badge ok">${icon('check')}ยินยอม</span>` : '<span class="badge mute">ไม่ยินยอม</span>'}</td>
+      <td class="nowrap">${esc(cfg.serviceLabels?.[r.interest] || '-')}</td>
+      <td>${r.consent ? '<span class="badge ok consent-badge">ยินยอม</span>' : '<span class="badge mute consent-badge">ไม่ยินยอม</span>'}</td>
       <td><div class="prize-cell">${art(p)}<div>${esc(r.prize)}<small>Day ${r.day_no} · คนที่ ${r.slot_no}</small></div></div></td>
       <td><code class="code">${esc(r.code)}</code></td>
       <td class="nowrap muted">${fmtTime(r.created_at)}</td>
@@ -297,73 +310,341 @@ $('#export').addEventListener('click', async () => {
   toast('ดาวน์โหลดไฟล์ CSV แล้ว');
 });
 
-// ---------- rewards (prize list × count per day) ----------
-let rw = null; // { prizes, days, counts, given, original }
+// ---------- call-back requests ("นัดคุยกับทีม") ----------
+let cbStatus = 'pending';
+async function showCallbacks() {
+  $$('#cb-status button').forEach((b) => b.classList.toggle('on', b.dataset.v === cbStatus));
+  const { rows } = await api(`/api/admin/callbacks?status=${cbStatus}`);
+  const tel = (p) => String(p || '').replace(/^(\d{3})(\d{3})(\d+)$/, '$1-$2-$3');
+  $('#cb-table').innerHTML = rows.length ? `
+    <thead><tr><th>ผู้เล่น</th><th>เบอร์โทร</th><th>สนใจ</th><th>รางวัล</th><th>ขอเมื่อ</th><th>สถานะ</th></tr></thead>
+    <tbody>${rows.map((r) => `<tr>
+      <td><b>${esc(r.name)}</b><div class="muted small">${esc(r.company)}</div></td>
+      <td class="nowrap"><a class="tel" href="tel:${esc(r.phone)}">${icon('phone')}${esc(tel(r.phone))}</a></td>
+      <td>${esc(r.interestLabel || '-')}${r.backend ? `<div class="muted small">${esc(r.backend)}</div>` : ''}</td>
+      <td>${esc(r.prize || '-')}</td>
+      <td class="nowrap">${fmtTime(r.callback_at)}</td>
+      <td class="nowrap">${r.callback_done_at
+        ? `<span class="badge ok" title="ติดต่อเมื่อ ${fmtTime(r.callback_done_at)}">ติดต่อแล้ว</span>`
+        : `<button class="btn btn-sm btn-primary" type="button" data-cb-done="${esc(r.line_user_id)}" data-name="${esc(r.name)}">ติดต่อแล้ว</button>`}</td>
+    </tr>`).join('')}</tbody>`
+    : `<tbody><tr><td><div class="empty">${cbStatus === 'pending' ? 'ไม่มีคำขอที่รอติดต่อ' : 'ยังไม่มีรายการ'}</div></td></tr></tbody>`;
+}
+$('#cb-status').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-v]'); if (!b) return;
+  cbStatus = b.dataset.v;
+  showCallbacks();
+});
+$('#cb-table').addEventListener('click', async (e) => {
+  const done = e.target.closest('[data-cb-done]');
+  if (!done) return;
+  // Marking as contacted is final (no undo), so confirm first.
+  if (!(await confirmBox(`ติดต่อ ${done.dataset.name} แล้ว?`, 'เมื่อยืนยันแล้วจะย้ายไป "ติดต่อแล้ว" และยกเลิกไม่ได้', 'ยืนยัน ติดต่อแล้ว'))) return;
+  const btn = done;
+  btn.disabled = true;
+  try {
+    await api('/api/admin/callbacks/done', { method: 'POST', body: { uid: done.dataset.cbDone } });
+    toast(`บันทึกว่าติดต่อ ${done.dataset.name} แล้ว`);
+    await showCallbacks();
+    refreshOverview();
+  } catch (err) { toast(err.message, true); btn.disabled = false; }
+});
+
+// ---------- rewards: (1) the prizes, (2) how many per day + optional locked positions ----------
+let rw = null; // { prizes, days, counts, given, locks, played, original }
 const PALETTE = ['#f59e0b', '#ec4899', '#6366f1', '#10b981', '#06b6d4', '#ef4444', '#8b5cf6', '#84cc16'];
-const rwSnapshot = () => ({ prizes: rw.prizes, counts: rw.counts });
+const rwSnapshot = () => ({ prizes: rw.prizes, counts: rw.counts, locks: rw.locks });
+let selDay = null; // day open in "จำนวนรางวัลต่อวัน"
 
 async function showSlots() {
   const data = await api('/api/admin/rewards');
   const counts = {};
   for (const d of data.days) counts[d.day_no] = Object.fromEntries(data.prizes.map((p) => [p.id, data.counts[d.day_no]?.[p.id] || 0]));
-  rw = { prizes: data.prizes.map(({ id, name, emoji, color, image }) => ({ id, name, emoji, color, image: image || null })), days: data.days, counts, given: data.given };
+  // Locks are edited as text ("10, 25, 40"); the server validates and parses them.
+  const locks = {};
+  for (const d of data.days) locks[d.day_no] = Object.fromEntries(data.prizes.map((p) => [p.id, (data.locks?.[d.day_no]?.[p.id] || []).join(', ')]));
+  rw = { prizes: data.prizes.map(({ id, name, emoji, color, image }) => ({ id, name, emoji, color, image: image || null })), days: data.days, counts, given: data.given, locks, played: data.played || {} };
+  if (!data.days.some((d) => d.day_no === selDay)) {
+    const today = todayIso();
+    selDay = (data.days.find((d) => d.date === today) || data.days.find((d) => d.date > today) || data.days[0])?.day_no ?? null;
+  }
   rw.original = clone(rwSnapshot());
   renderRewards();
 }
 
+const dayTotal = (dayNo) => rw.prizes.reduce((a, p) => a + (Number(rw.counts[dayNo]?.[p.id]) || 0), 0);
+const givenOf = (dayNo, id) => rw.given[dayNo]?.[id] || 0;
+const isPastDay = (d) => d.date < todayIso();
+
 function renderRewards() {
-  const days = rw.days;
-  const sum = (dayNo) => rw.prizes.reduce((a, p) => a + (Number(rw.counts[dayNo]?.[p.id]) || 0), 0);
-  const rowTotal = (id) => days.reduce((a, d) => a + (Number(rw.counts[d.day_no]?.[id]) || 0), 0);
-  $('#reward-table').innerHTML = `
-    <thead><tr><th>ของรางวัล</th>${days.map((d) => `<th class="num">Day ${d.day_no}<small>${thaiDate(d.date)}</small></th>`).join('')}<th class="num">รวม</th><th></th></tr></thead>
-    <tbody>${rw.prizes.map((p, i) => `
-      <tr data-i="${i}">
-        <td><div class="reward-name">
-          <span class="art-edit">
-            <button class="art-btn" type="button" data-upload title="เปลี่ยนรูปรางวัล" aria-label="เปลี่ยนรูป ${esc(p.name)}">${art(p, 'lg')}<span class="cam">${icon('camera')}</span></button>
-            ${p.image ? `<button class="art-reset" type="button" data-unimage title="ใช้รูปเริ่มต้น" aria-label="ลบรูปที่อัปโหลด">×</button>` : ''}
-          </span>
-          <input name="name" value="${esc(p.name)}" maxlength="60" placeholder="ชื่อรางวัล" aria-label="ชื่อรางวัล">
-          ${KNOWN_ART.has(p.id) || p.image ? '' : `<input class="emoji-in" name="emoji" value="${esc(p.emoji)}" maxlength="4" aria-label="อีโมจิ" title="อีโมจิ (ใช้เมื่อไม่มีรูป)">`}
-          <input type="color" name="color" value="${esc(p.color)}" aria-label="สี" title="สี"></div></td>
-        ${days.map((d) => {
-          const given = rw.given[d.day_no]?.[p.id] || 0;
-          return `<td class="num"><input class="count" type="number" min="${given}" inputmode="numeric" data-day="${d.day_no}" value="${rw.counts[d.day_no]?.[p.id] ?? 0}" aria-label="${esc(p.name)} Day ${d.day_no}">
-            ${given ? `<small class="given">แจกแล้ว ${given}</small>` : ''}</td>`;
-        }).join('')}
-        <td class="num"><b>${rowTotal(p.id)}</b></td>
-        <td><button class="icon-btn danger" type="button" data-remove aria-label="ลบ ${esc(p.name)}">${icon('trash')}</button></td>
-      </tr>`).join('')}</tbody>
-    <tfoot><tr><th>ผู้ได้รางวัลต่อวัน</th>${days.map((d) => `<th class="num">${sum(d.day_no)}</th>`).join('')}<th class="num">${days.reduce((a, d) => a + sum(d.day_no), 0)}</th><th></th></tr></tfoot>`;
-  if (!days.length) $('#reward-table').innerHTML = '<tbody><tr><td><div class="empty">ยังไม่มีวันจัดงาน — ตั้งได้ที่ "วันและเวลา"</div></td></tr></tbody>';
+  renderDays();
   syncSavebar();
 }
 
-$('#reward-table').addEventListener('input', (e) => {
-  const row = e.target.closest('tr[data-i]'); if (!row) return;
+// ---- locked positions ("player N of the day gets prize P") ----
+const parseLock = (s) => String(s || '').split(/[\s,]+/).filter(Boolean);
+function lockIssues(dayNo) {
+  const total = dayTotal(dayNo);
+  const seen = new Map(); const out = {};
+  for (const p of rw.prizes) {
+    const parts = parseLock(rw.locks[dayNo]?.[p.id]);
+    const count = Number(rw.counts[dayNo]?.[p.id]) || 0;
+    let err = '';
+    for (const part of parts) {
+      const n = Number(part);
+      if (!Number.isInteger(n) || n < 1) { err = `"${part}" ไม่ใช่ลำดับที่ถูกต้อง`; break; }
+      if (n > total) { err = `วันนี้มีผู้ได้รางวัล ${total} คน ใช้ลำดับที่ ${n} ไม่ได้`; break; }
+      if (seen.has(n)) { err = `ลำดับที่ ${n} ใช้กับ ${seen.get(n)} แล้ว`; break; }
+      seen.set(n, p.name || 'รางวัลอื่น');
+    }
+    if (!err && parts.length > count) err = `มี ${count} ชิ้น แต่ใส่ ${parts.length} ลำดับ`;
+    out[p.id] = { n: parts.length, count, err };
+  }
+  return out;
+}
+const lockStatus = (it) => (it.err ? `<span class="lock-err">${esc(it.err)}</span>`
+  : it.count === 0 ? '<span class="muted">วันนี้ไม่มีรางวัลนี้</span>'
+    : !it.n ? `สุ่มลำดับทั้ง ${it.count} ชิ้น`
+      : it.n === it.count ? `ล็อกครบทุกชิ้น (${it.n})` : `ล็อก ${it.n} / ${it.count} ชิ้น · อีก ${it.count - it.n} ชิ้นสุ่ม`);
+
+// prizes × the selected day: details, count and optional locked positions on one row
+function renderDays() {
+  const none = !rw.days.length;
+  for (const sel of ['#day-tabs', '.alloc-head', '#alloc-list', '.day-actions']) $(sel).hidden = none;
+  if (none) {
+    $('#day-summary').innerHTML = '<div class="empty">ยังไม่มีวันจัดงาน — ตั้งได้ที่ <button class="link-btn" type="button" data-goto="schedule">วันและเวลา</button></div>';
+    return;
+  }
+  renderDayTabs();
+  const day = rw.days.find((d) => d.day_no === selDay);
+  const past = isPastDay(day);
+  const issues = lockIssues(selDay);
+  $('#alloc-list').innerHTML = rw.prizes.map((p, i) => {
+    const given = givenOf(selDay, p.id);
+    const count = Number(rw.counts[selDay]?.[p.id]) || 0;
+    const it = issues[p.id];
+    return `<div class="alloc-row" data-id="${esc(p.id)}" data-i="${i}">
+      <div class="alloc-prize">
+        <span class="art-edit">
+          <button class="art-btn" type="button" data-upload title="เปลี่ยนรูปรางวัล" aria-label="เปลี่ยนรูป ${esc(p.name)}">${art(p, 'lg')}<span class="cam">${icon('camera')}</span></button>
+          ${p.image ? '<button class="art-reset" type="button" data-unimage title="ใช้รูปเริ่มต้น" aria-label="ลบรูปที่อัปโหลด">×</button>' : ''}
+        </span>
+        <div class="prize-fields">
+          <div class="prize-line">
+            <input name="name" value="${esc(p.name)}" maxlength="60" placeholder="ชื่อรางวัล" aria-label="ชื่อรางวัล">
+            ${KNOWN_ART.has(p.id) || p.image ? '' : `<input class="emoji-in" name="emoji" value="${esc(p.emoji)}" maxlength="4" aria-label="อีโมจิ" title="อีโมจิ (ใช้เมื่อไม่มีรูป)">`}
+            <input type="color" name="color" value="${esc(p.color)}" aria-label="สีของรางวัล" title="สี (ใช้ในกราฟหน้าภาพรวม)">
+          </div>
+          <small class="prize-meta" data-meta>${prizeMeta(p)}</small>
+        </div>
+      </div>
+      <div class="alloc-count">
+        <div class="stepper">
+          <button type="button" data-step="-1" aria-label="ลดจำนวน ${esc(p.name)}" ${past || count <= given ? 'disabled' : ''}>${icon('minus')}</button>
+          <input class="count" type="number" min="${given}" inputmode="numeric" value="${count}" aria-label="จำนวน ${esc(p.name)} Day ${selDay}" ${past ? 'disabled' : ''}>
+          <button type="button" data-step="1" aria-label="เพิ่มจำนวน ${esc(p.name)}" ${past ? 'disabled' : ''}>${icon('add')}</button>
+        </div>
+        ${given ? `<small class="given">แจกแล้ว ${given}</small>` : ''}
+      </div>
+      <div class="alloc-lock">
+        <div class="chip-input" data-chips>${chipsHtml(p, count, past, it)}</div>
+        <small class="lock-status">${lockStatus(it)}</small>
+      </div>
+      <div class="alloc-del"><button class="icon-btn danger" type="button" data-remove aria-label="ลบ ${esc(p.name)}" title="ลบรางวัลนี้">${icon('trash')}</button></div>
+    </div>`;
+  }).join('');
+  $('#reward-copy').hidden = past || rw.days.length < 2;
+  if (!rw.prizes.length) $('#alloc-list').innerHTML = '<div class="empty">ยังไม่มีของรางวัล</div>';
+  renderDaySummary();
+}
+// ---- locked positions as chips: type a number, Enter → chip; × removes ----
+const lockList = (id) => parseLock(rw.locks[selDay]?.[id]).map(Number);
+const setLockList = (id, list) => { (rw.locks[selDay] ||= {})[id] = [...new Set(list)].sort((a, b) => a - b).join(', '); };
+function chipsHtml(p, count, past, it) {
+  const list = lockList(p.id);
+  const off = past || count === 0;
+  const full = list.length >= count;
+  return `${list.map((n) => `<span class="chip">${n}${off ? '' : `<button type="button" data-unchip="${n}" aria-label="เอาลำดับที่ ${n} ออก" title="เอาออก">${icon('x')}</button>`}</span>`).join('')}
+    ${off ? (list.length ? '' : '<span class="chip-empty">—</span>') : `<input class="lock-add" type="text" inputmode="numeric" autocomplete="off" enterkeyhint="done"
+      aria-label="เพิ่มลำดับผู้ได้ ${esc(p.name)}" aria-invalid="${!!it?.err}" ${full ? 'disabled' : ''}
+      placeholder="${full ? 'ล็อกครบแล้ว' : list.length ? '+ เพิ่มลำดับ' : 'พิมพ์ลำดับ แล้วกด Enter'}">`}`;
+}
+function rerenderChips(row, { focus = false, keep = '' } = {}) {
+  const id = row.dataset.id;
   const p = rw.prizes[Number(row.dataset.i)];
-  if (e.target.classList.contains('count')) {
-    rw.counts[e.target.dataset.day][p.id] = Math.max(0, Math.floor(Number(e.target.value) || 0));
-    // update totals without re-rendering (keeps focus while typing)
-    const days = rw.days;
-    row.querySelector('td:nth-last-child(2) b').textContent = days.reduce((a, d) => a + (Number(rw.counts[d.day_no]?.[p.id]) || 0), 0);
-    const foot = $$('#reward-table tfoot th');
-    days.forEach((d, i) => { foot[i + 1].textContent = rw.prizes.reduce((a, q) => a + (Number(rw.counts[d.day_no]?.[q.id]) || 0), 0); });
-    foot[days.length + 1].textContent = days.reduce((a, d) => a + rw.prizes.reduce((b, q) => b + (Number(rw.counts[d.day_no]?.[q.id]) || 0), 0), 0);
-  } else if (e.target.name) {
+  const count = Number(rw.counts[selDay]?.[id]) || 0;
+  const day = rw.days.find((d) => d.day_no === selDay);
+  row.querySelector('[data-chips]').innerHTML = chipsHtml(p, count, isPastDay(day), lockIssues(selDay)[id]);
+  const input = row.querySelector('.lock-add');
+  if (input) { input.value = keep; if (focus && !input.disabled) input.focus(); }
+}
+/** Validate one position for prize `id` on the selected day → error message or ''. */
+function lockError(id, n, pending) {
+  const total = dayTotal(selDay);
+  const played = rw.played[selDay] || 0;
+  const count = Number(rw.counts[selDay]?.[id]) || 0;
+  if (!Number.isInteger(n) || n < 1) return 'ใส่ได้เฉพาะตัวเลข 1 ขึ้นไป';
+  if (n > total) return `วันนี้มีผู้ได้รางวัล ${total} คน ใส่ได้ถึงคนที่ ${total}`;
+  if (n <= played) return `คนที่ ${n} เล่นไปแล้ว · ล็อกได้ตั้งแต่คนที่ ${played + 1}`;
+  if (pending.includes(n)) return `ลำดับที่ ${n} ใส่ไว้แล้ว`;
+  const other = rw.prizes.find((q) => q.id !== id && lockList(q.id).includes(n));
+  if (other) return `ลำดับที่ ${n} เป็นของ${other.name || 'รางวัลอื่น'}แล้ว`;
+  if (pending.length >= count) return `${rw.prizes.find((q) => q.id === id)?.name || 'รางวัลนี้'}มี ${count} ชิ้น ล็อกครบแล้ว`;
+  return '';
+}
+/** Turn whatever is typed (one number or "10, 25 40") into chips; keep the bad part in the box with a message. */
+function commitChips(row) {
+  const input = row.querySelector('.lock-add'); if (!input) return;
+  const parts = input.value.split(/[\s,]+/).filter(Boolean);
+  if (!parts.length) return;
+  const id = row.dataset.id;
+  const list = lockList(id);
+  let err = ''; const rest = [];
+  for (const part of parts) {
+    const n = Number(part);
+    const e = err ? 'skip' : lockError(id, n, list);
+    if (e) { if (!err) err = e; rest.push(part); continue; }
+    list.push(n);
+  }
+  setLockList(id, list);
+  rerenderChips(row, { focus: true, keep: rest.join(', ') });
+  refreshDay();
+  if (err) {
+    const status = row.querySelector('.lock-status');
+    status.innerHTML = `<span class="lock-err">${esc(err)}</span>`;
+    row.querySelector('.lock-add')?.setAttribute('aria-invalid', 'true');
+  }
+}
+
+function renderDayTabs() {
+  const today = todayIso();
+  $('#day-tabs').innerHTML = rw.days.map((d) => {
+    const tag = d.date === today ? '<span class="day-tag now">วันนี้</span>' : d.date < today ? '<span class="day-tag">จบแล้ว</span>' : '';
+    return `<button type="button" role="tab" data-day="${d.day_no}" aria-selected="${d.day_no === selDay}" class="day-tab ${d.day_no === selDay ? 'on' : ''} ${d.date < today ? 'past' : ''}">
+      <span class="day-tab-top"><b>Day ${d.day_no}</b>${tag}</span><small>${thaiDate(d.date)}</small><span class="day-tab-total">${dayTotal(d.day_no)} คน</span></button>`;
+  }).join('');
+}
+function renderDaySummary() {
+  const day = rw.days.find((d) => d.day_no === selDay);
+  const total = dayTotal(selDay);
+  const played = rw.played[selDay] || 0;
+  const bits = [`ผู้ได้รางวัล <b>${total}</b> คน`];
+  if (played) bits.push(`แจกแล้ว ${played} · เหลือ ${Math.max(0, total - played)}`);
+  let note = '';
+  if (isPastDay(day)) note = '<p class="day-note">วันนี้จบแล้ว ดูได้อย่างเดียว</p>';
+  else if (!total) note = '<p class="day-note warn">วันนี้ยังไม่มีรางวัล ผู้เล่นจะเจอ "รางวัลหมดแล้ว"</p>';
+  else if (played) note = `<p class="day-note">มีผู้เล่นไปแล้ว ${played} คน · ล็อกลำดับเพิ่มได้ตั้งแต่คนที่ ${played + 1}</p>`;
+  $('#day-summary').innerHTML = `<p><b>Day ${day.day_no}</b> · ${thaiDate(day.date, { weekday: 'long' })} — ${bits.join(' · ')}</p>${note}`;
+}
+function refreshDay() { // after an edit: update numbers in place (keeps focus while typing)
+  const issues = lockIssues(selDay);
+  for (const row of $$('#alloc-list .alloc-row')) {
+    const id = row.dataset.id;
+    const it = issues[id];
+    const count = Number(rw.counts[selDay]?.[id]) || 0;
+    const add = row.querySelector('.lock-add');
+    const full = lockList(id).length >= count;
+    // count changed so the box must switch on/off → rebuild chips (only when not typing in it)
+    if ((!add && count > 0) || (add && (count === 0 || add.disabled !== full)) ) { if (document.activeElement !== add) rerenderChips(row); }
+    else if (add) add.setAttribute('aria-invalid', String(!!it.err));
+    row.querySelector('.lock-status').innerHTML = lockStatus(it);
+    row.querySelector('[data-step="-1"]').disabled = count <= givenOf(selDay, id);
+  }
+  renderDayTabs();
+  renderDaySummary();
+  for (const row of $$('#alloc-list .alloc-row')) row.querySelector('[data-meta]').textContent = prizeMeta(rw.prizes[Number(row.dataset.i)]);
+  syncSavebar();
+}
+function prizeMeta(p) { // totals across all days
+  const total = rw.days.reduce((a, d) => a + (Number(rw.counts[d.day_no]?.[p.id]) || 0), 0);
+  const given = rw.days.reduce((a, d) => a + givenOf(d.day_no, p.id), 0);
+  return `ทุกวันรวม ${total} ชิ้น${given ? ` · แจกแล้ว ${given}` : ''}`;
+}
+
+$('#day-card').addEventListener('click', (e) => {
+  const tab = e.target.closest('[data-day]');
+  if (tab) { selDay = Number(tab.dataset.day); renderDays(); return; }
+  const step = e.target.closest('[data-step]');
+  if (step) {
+    const row = step.closest('.alloc-row');
+    const id = row.dataset.id;
+    const next = Math.max(givenOf(selDay, id), (Number(rw.counts[selDay][id]) || 0) + Number(step.dataset.step));
+    rw.counts[selDay][id] = next;
+    row.querySelector('input.count').value = next;
+    refreshDay();
+  }
+});
+$('#day-card').addEventListener('input', (e) => {
+  const row = e.target.closest('.alloc-row'); if (!row) return;
+  const id = row.dataset.id;
+  if (['name', 'emoji', 'color'].includes(e.target.name)) { // prize details (no re-render: keeps focus)
+    const p = rw.prizes[Number(row.dataset.i)];
     p[e.target.name] = e.target.value;
     if (e.target.name !== 'name') row.querySelector('.art').innerHTML = artInner(p);
+    syncSavebar();
+    return;
   }
-  syncSavebar();
+  if (e.target.classList.contains('lock-add')) { // pasted "10, 25" or typed a separator → commit
+    e.target.setAttribute('aria-invalid', 'false');
+    if (/[\s,]/.test(e.target.value)) commitChips(row);
+    return;
+  }
+  if (e.target.classList.contains('count')) rw.counts[selDay][id] = Math.max(0, Math.floor(Number(e.target.value) || 0));
+  refreshDay();
 });
+$('#day-card').addEventListener('keydown', (e) => {
+  if (!e.target.classList.contains('lock-add')) return;
+  const row = e.target.closest('.alloc-row');
+  if (e.key === 'Enter') { e.preventDefault(); commitChips(row); }
+  else if (e.key === 'Backspace' && !e.target.value) { // empty box: remove the last chip
+    const list = lockList(row.dataset.id);
+    if (!list.length) return;
+    list.pop(); setLockList(row.dataset.id, list); rerenderChips(row, { focus: true }); refreshDay();
+  }
+});
+$('#day-card').addEventListener('focusout', (e) => { if (e.target.classList.contains('lock-add')) commitChips(e.target.closest('.alloc-row')); });
+$('#day-card').addEventListener('click', (e) => {
+  const x = e.target.closest('[data-unchip]');
+  if (x) {
+    const row = x.closest('.alloc-row');
+    setLockList(row.dataset.id, lockList(row.dataset.id).filter((n) => n !== Number(x.dataset.unchip)));
+    rerenderChips(row, { focus: true }); refreshDay();
+    return;
+  }
+  const box = e.target.closest('.chip-input'); // click anywhere in the box → type
+  if (box && e.target === box) box.querySelector('.lock-add')?.focus();
+});
+$('#day-card').addEventListener('change', (e) => { // don't allow fewer than already given
+  if (!e.target.classList.contains('count')) return;
+  const id = e.target.closest('.alloc-row').dataset.id;
+  const min = givenOf(selDay, id);
+  if ((Number(rw.counts[selDay][id]) || 0) < min) { rw.counts[selDay][id] = min; e.target.value = min; toast(`แจกไปแล้ว ${min} ชิ้น ตั้งน้อยกว่านี้ไม่ได้`, true); refreshDay(); }
+});
+$('#reward-copy').addEventListener('click', () => {
+  const today = todayIso();
+  const targets = rw.days.filter((d) => d.day_no !== selDay && d.date >= today);
+  for (const d of targets) {
+    for (const p of rw.prizes) rw.counts[d.day_no][p.id] = Math.max(rw.counts[selDay][p.id] || 0, givenOf(d.day_no, p.id));
+  }
+  renderRewards();
+  toast(`ใช้จำนวนของ Day ${selDay} กับอีก ${targets.length} วันแล้ว — กด "บันทึก" เพื่อใช้งาน`);
+});
+
 // ---- prize image upload (resized in the browser so phones load it fast) ----
 let uploadFor = null;
-$('#reward-table').addEventListener('click', (e) => {
-  const row = e.target.closest('tr[data-i]'); if (!row) return;
-  const p = rw.prizes[Number(row.dataset.i)];
-  if (e.target.closest('[data-upload]')) { uploadFor = p; $('#prize-file').value = ''; $('#prize-file').click(); }
-  if (e.target.closest('[data-unimage]')) { p.image = null; renderRewards(); }
+$('#alloc-list').addEventListener('click', async (e) => {
+  const row = e.target.closest('.alloc-row[data-i]'); if (!row) return;
+  const i = Number(row.dataset.i);
+  const p = rw.prizes[i];
+  if (e.target.closest('[data-upload]')) { uploadFor = p; $('#prize-file').value = ''; $('#prize-file').click(); return; }
+  if (e.target.closest('[data-unimage]')) { p.image = null; renderRewards(); return; }
+  if (!e.target.closest('[data-remove]')) return;
+  const given = rw.days.reduce((a, d) => a + givenOf(d.day_no, p.id), 0);
+  if (given) return toast(`"${p.name}" มีผู้ได้รับไปแล้ว ${given} ชิ้น ลบไม่ได้ — ตั้งจำนวนเป็น 0 แทน`, true);
+  if (!(await confirmBox(`ลบ "${p.name || 'รางวัลนี้'}"?`, 'รางวัลนี้จะถูกเอาออกจากทุกวัน · มีผลเมื่อกดบันทึก', 'ลบ'))) return;
+  rw.prizes.splice(i, 1);
+  for (const d of rw.days) { delete rw.counts[d.day_no][p.id]; delete rw.locks[d.day_no]?.[p.id]; }
+  renderRewards();
 });
 function shrinkImage(file, max = 640) {
   return new Promise((resolve, reject) => {
@@ -393,38 +674,24 @@ $('#prize-file').addEventListener('change', async (e) => {
     toast('อัปโหลดรูปแล้ว — กด "บันทึก" เพื่อใช้งาน');
   } catch (err) { toast(err.message, true); }
 });
-
-$('#reward-table').addEventListener('click', async (e) => {
-  if (!e.target.closest('[data-remove]')) return;
-  const i = Number(e.target.closest('tr[data-i]').dataset.i);
-  const p = rw.prizes[i];
-  const given = rw.days.reduce((a, d) => a + (rw.given[d.day_no]?.[p.id] || 0), 0);
-  if (given) return toast(`"${p.name}" มีผู้ได้รับไปแล้ว ${given} ชิ้น ลบไม่ได้ — ตั้งจำนวนเป็น 0 แทน`, true);
-  if (!(await confirmBox(`ลบ "${p.name || 'รางวัลนี้'}"?`, 'รางวัลนี้จะถูกเอาออกจากทุกวัน · มีผลเมื่อกดบันทึก', 'ลบ'))) return;
-  rw.prizes.splice(i, 1);
-  for (const d of rw.days) delete rw.counts[d.day_no][p.id];
-  renderRewards();
-});
 $('#reward-add').addEventListener('click', () => {
   const id = `p-${Date.now().toString(36)}`;
   rw.prizes.push({ id, name: '', emoji: '🎁', color: PALETTE[rw.prizes.length % PALETTE.length], image: null });
   for (const d of rw.days) rw.counts[d.day_no][id] = 0;
   renderRewards();
-  $$('#reward-table tbody input[name=name]').at(-1)?.focus();
-});
-$('#reward-copy').addEventListener('click', () => {
-  const first = rw.days[0]; if (!first) return;
-  for (const d of rw.days.slice(1)) {
-    for (const p of rw.prizes) rw.counts[d.day_no][p.id] = Math.max(rw.counts[first.day_no][p.id] || 0, rw.given[d.day_no]?.[p.id] || 0);
-  }
-  renderRewards();
-  toast('คัดลอกจำนวนของ Day 1 แล้ว — กด "บันทึก" เพื่อใช้งาน');
+  const last = $$('#alloc-list .alloc-row').at(-1);
+  last?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  last?.querySelector('input[name=name]')?.focus({ preventScroll: true });
 });
 editors.slots = {
   isDirty: () => !!rw && !same(rwSnapshot(), rw.original),
-  reset: () => { const o = clone(rw.original); rw.prizes = o.prizes; rw.counts = o.counts; renderRewards(); },
+  reset: () => { const o = clone(rw.original); rw.prizes = o.prizes; rw.counts = o.counts; rw.locks = o.locks; renderRewards(); },
   save: async () => {
     if (rw.prizes.some((p) => !p.name.trim())) throw new Error('กรุณาตั้งชื่อของรางวัลให้ครบ');
+    for (const d of rw.days) {
+      const bad = Object.entries(lockIssues(d.day_no)).find(([, it]) => it.err);
+      if (bad) { selDay = d.day_no; renderDays(); throw new Error(`ล็อกลำดับ Day ${d.day_no}: ${bad[1].err}`); }
+    }
     await api('/api/admin/rewards', { method: 'PUT', body: rwSnapshot() });
     await loadConfig();
     await showSlots();
@@ -573,9 +840,9 @@ function renderCoupons() {
     <div class="card coupon-row ${c.active ? '' : 'off'}" data-i="${i}">
       <input name="brand" value="${esc(c.brand)}" maxlength="60" placeholder="แบรนด์" aria-label="แบรนด์">
       <input class="benefit" name="benefit" value="${esc(c.benefit)}" maxlength="200" placeholder="สิทธิ์ที่ได้รับ" aria-label="สิทธิ์">
-      <select name="service" aria-label="ให้กับผู้ที่สนใจบริการ" title="ให้กับผู้ที่สนใจบริการ">
+      <select name="service" aria-label="บริการที่สนใจ (ตัวเลือกเดียวกับหน้าเกม)" title="ให้กับผู้เล่นที่เลือกบริการนี้ในหน้าเกม">
         <option value="">ทุกบริการ (สำรอง)</option>
-        ${cfg.services.map((s) => `<option value="${esc(s.id)}" ${c.service === s.id ? 'selected' : ''}>สนใจ: ${esc(s.label)}</option>`).join('')}
+        ${cfg.services.map((s) => `<option value="${esc(s.id)}" ${c.service === s.id ? 'selected' : ''}>${esc(s.label)}</option>`).join('')}
       </select>
       <label class="switch"><input type="checkbox" name="active" ${c.active ? 'checked' : ''}><span class="track"></span>${c.active ? 'เปิดใช้' : 'ปิดอยู่'}</label>
       <button class="icon-btn danger" type="button" data-remove aria-label="ลบ">${icon('trash')}</button>
@@ -614,7 +881,7 @@ editors.coupons = {
 
 // ---------- settings ----------
 let settingsDraft = null;
-const SETTING_KEYS = ['event_name', 'play_limit', 'cta_text', 'cta_url'];
+const SETTING_KEYS = ['event_name', 'play_limit', 'cta_text'];
 const pickSettings = (s) => Object.fromEntries(SETTING_KEYS.map((k) => [k, String(s[k] ?? '')]));
 function showSettings() {
   settingsDraft = pickSettings(cfg.settings);

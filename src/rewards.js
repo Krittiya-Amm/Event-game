@@ -3,6 +3,7 @@
 // we shuffle them into slots, never touching slots that have already been won.
 import { addDays } from './time.js';
 import { buildSlots } from './seed.js';
+import { getSettings, setSetting } from './db.js';
 
 const ID_RE = /^[a-z0-9_-]{1,30}$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -15,19 +16,30 @@ class InputError extends Error {
 }
 export { InputError };
 
-/** { prizes, days, counts: {day: {prize: n}}, given: {day: {prize: n}} } */
+// Locked positions: "player N of Day D gets prize P" — kept in settings as JSON { day: { prizeId: [N, …] } },
+// so no schema change is needed. Every other slot is still shuffled.
+const LOCKS_KEY = 'locked_slots';
+async function readLocks(q) {
+  try { const v = JSON.parse((await getSettings(q))[LOCKS_KEY] || '{}'); return v && typeof v === 'object' ? v : {}; } catch { return {}; }
+}
+const writeLocks = (q, locks) => setSetting(q, LOCKS_KEY, JSON.stringify(locks));
+
+/** { prizes, days, counts: {day: {prize: n}}, given: {day: {prize: n}}, locks: {day: {prize: [n]}}, played: {day: n} } */
 export async function getRewards(db) {
-  const [prizes, days, slotRows, playRows] = await Promise.all([
+  const [prizes, days, slotRows, playRows, locks, usedRows] = await Promise.all([
     db.all('SELECT id, name, emoji, color, image FROM prizes ORDER BY sort, id'),
     db.all('SELECT day_no, date FROM event_days ORDER BY day_no'),
     db.all('SELECT day_no, prize_id, COUNT(*) AS n FROM slots GROUP BY day_no, prize_id'),
     db.all('SELECT day_no, prize_id, COUNT(*) AS n FROM plays GROUP BY day_no, prize_id'),
+    readLocks(db),
+    db.all('SELECT day_no, MAX(slot_no) AS n FROM plays GROUP BY day_no'),
   ]);
   const counts = {}; const given = {};
   for (const d of days) { counts[d.day_no] = {}; given[d.day_no] = {}; }
   for (const r of slotRows) if (counts[r.day_no]) counts[r.day_no][r.prize_id] = r.n;
   for (const r of playRows) if (given[r.day_no]) given[r.day_no][r.prize_id] = r.n;
-  return { prizes, days, counts, given };
+  const played = Object.fromEntries(usedRows.map((r) => [r.day_no, Number(r.n)]));
+  return { prizes, days, counts, given, locks, played };
 }
 
 /** Multi-row insert (one round trip per 300 slots — matters on a remote database). */
@@ -39,23 +51,63 @@ export async function insertSlots(q, dayNo, firstSlot, prizeIds) {
   }
 }
 
-/** Re-shuffle a day's not-yet-won slots so the day ends up with exactly `want` of each prize. */
-async function allocateDay(q, dayNo, want, prizeName) {
+/** Rebuild a day's not-yet-won slots so the day ends up with exactly `want` of each prize.
+ *  `locked` ({ prizeId: [slotNo, …] }) pins prizes to given player numbers; the rest is shuffled. */
+async function allocateDay(q, dayNo, want, prizeName, locked = {}) {
   const played = await q.all('SELECT slot_no, prize_id FROM plays WHERE day_no = ? ORDER BY slot_no', [dayNo]);
   const used = played.length ? played[played.length - 1].slot_no : 0;
+  const total = Object.values(want).reduce((a, n) => a + n, 0);
   const left = { ...want };
   for (const p of played) left[p.prize_id] = (left[p.prize_id] || 0) - 1;
   for (const [id, n] of Object.entries(left)) {
     if (n < 0) throw new InputError(`Day ${dayNo}: ${prizeName(id)} แจกไปแล้ว ${(want[id] || 0) - n} ชิ้น ตั้งน้อยกว่านี้ไม่ได้`);
   }
+  const playedAt = Object.fromEntries(played.map((p) => [p.slot_no, p.prize_id]));
+  const fixed = {}; // slotNo → prizeId, only for slots nobody has played yet
+  for (const [id, positions] of Object.entries(locked)) {
+    for (const n of positions) {
+      if (n > total) throw new InputError(`Day ${dayNo}: วันนี้มีผู้ได้รางวัล ${total} คน ล็อกลำดับที่ ${n} ไม่ได้`);
+      if (n <= used) {
+        if (playedAt[n] && playedAt[n] !== id) throw new InputError(`Day ${dayNo}: คนที่ ${n} เล่นไปแล้ว (ได้${prizeName(playedAt[n])}) เปลี่ยนไม่ได้`);
+        continue;
+      }
+      fixed[n] = id;
+      left[id] -= 1;
+      if (left[id] < 0) throw new InputError(`Day ${dayNo}: ${prizeName(id)} เหลือไม่พอให้ล็อกตามลำดับที่ใส่`);
+    }
+  }
+  const free = buildSlots(left);
+  const list = [];
+  for (let n = used + 1; n <= total; n++) list.push(fixed[n] || free.pop());
   await q.run('DELETE FROM slots WHERE day_no = ? AND slot_no > ?', [dayNo, used]);
-  await insertSlots(q, dayNo, used + 1, buildSlots(left));
+  await insertSlots(q, dayNo, used + 1, list);
+}
+
+/** Validate { prizeId: "10, 25" | [10, 25] } for one day → { prizeId: [10, 25] } (sorted, no empties). */
+function parseDayLocks(dayNo, raw, want, names) {
+  const out = {}; const seen = new Map();
+  for (const [id, value] of Object.entries(raw || {})) {
+    if (!names[id]) continue; // prize removed in this save
+    const parts = Array.isArray(value) ? value : String(value ?? '').split(/[\s,]+/).filter(Boolean);
+    const nums = [];
+    for (const part of parts) {
+      const n = Number(part);
+      if (!Number.isInteger(n) || n < 1) throw new InputError(`Day ${dayNo}: ลำดับของ ${names[id]} ต้องเป็นเลข 1 ขึ้นไป`);
+      if (seen.has(n)) throw new InputError(`Day ${dayNo}: ลำดับที่ ${n} ถูกใช้กับ ${seen.get(n)} แล้ว`);
+      seen.set(n, names[id]);
+      nums.push(n);
+    }
+    if (nums.length > (want[id] || 0)) throw new InputError(`Day ${dayNo}: ${names[id]} มี ${want[id] || 0} ชิ้น แต่ล็อกไว้ ${nums.length} ลำดับ`);
+    if (nums.length) out[id] = nums.sort((a, b) => a - b);
+  }
+  return out;
 }
 
 /** `isImage(url)` decides which image URLs may be stored (our own uploads only). */
 export async function saveRewards(db, body, { isImage = () => false } = {}) {
   const prizes = Array.isArray(body?.prizes) ? body.prizes : [];
   const counts = body?.counts && typeof body.counts === 'object' ? body.counts : {};
+  const lockInput = body?.locks && typeof body.locks === 'object' ? body.locks : null; // null = keep current locks
   if (!prizes.length) throw new InputError('ต้องมีของรางวัลอย่างน้อย 1 รายการ');
   const ids = new Set();
   for (const p of prizes) {
@@ -81,6 +133,8 @@ export async function saveRewards(db, body, { isImage = () => false } = {}) {
         isImage(p.image) ? p.image : null, ++i]);
     }
 
+    const current = await readLocks(q);
+    const locks = {};
     for (const { day_no: dayNo } of await q.all('SELECT day_no FROM event_days ORDER BY day_no')) {
       const want = {};
       let total = 0;
@@ -91,8 +145,11 @@ export async function saveRewards(db, body, { isImage = () => false } = {}) {
         total += n;
       }
       if (total > MAX_PER_DAY) throw new InputError(`Day ${dayNo}: รวมเกิน ${MAX_PER_DAY} รางวัล`);
-      await allocateDay(q, dayNo, want, (id) => names[id] || id);
+      const dayLocks = parseDayLocks(dayNo, (lockInput || current)[dayNo], want, names);
+      if (Object.keys(dayLocks).length) locks[dayNo] = dayLocks;
+      await allocateDay(q, dayNo, want, (id) => names[id] || id, dayLocks);
     }
+    await writeLocks(q, locks);
   }, { lock: 4242 });
 }
 
@@ -147,6 +204,13 @@ export async function saveSchedule(db, body) {
       [dayNo, date, ...hours(date)]);
       if (isNew) await allocateDay(q, dayNo, template, (id) => id);
     }
+    // A day number that was dropped or re-created starts without locked positions.
+    const locks = await readLocks(q);
+    let changed = false;
+    for (const k of Object.keys(locks)) {
+      if (Number(k) > dates.length || !old.some((d) => d.day_no === Number(k))) { delete locks[k]; changed = true; }
+    }
+    if (changed) await writeLocks(q, locks);
   }, { lock: 4242 });
 }
 

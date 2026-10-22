@@ -37,7 +37,9 @@ CREATE TABLE IF NOT EXISTS players (
   phone        TEXT NOT NULL,
   consent      INTEGER NOT NULL DEFAULT 0, -- 1 = agreed to be contacted
   interest     TEXT,                       -- service id from services.js
-  created_at   TEXT NOT NULL
+  created_at   TEXT NOT NULL,
+  callback_at      TEXT,                   -- tapped "นัดคุยกับทีม" in the game (ISO time)
+  callback_done_at TEXT                    -- Backoffice marked the lead as contacted
 );
 CREATE INDEX IF NOT EXISTS players_phone ON players(phone);
 CREATE TABLE IF NOT EXISTS coupons (
@@ -118,6 +120,7 @@ function migrateSqlite(db) {
   const p = cols('players');
   if (!p.includes('consent')) db.exec('ALTER TABLE players ADD COLUMN consent INTEGER NOT NULL DEFAULT 0');
   if (!p.includes('interest')) db.exec('ALTER TABLE players ADD COLUMN interest TEXT');
+  for (const c of CALLBACK_COLS) if (!p.includes(c)) db.exec(`ALTER TABLE players ADD COLUMN ${c} TEXT`);
   if (!cols('prizes').includes('image')) db.exec('ALTER TABLE prizes ADD COLUMN image TEXT');
   if (!cols('coupons').includes('service')) {
     db.exec('ALTER TABLE coupons ADD COLUMN service TEXT');
@@ -126,7 +129,19 @@ function migrateSqlite(db) {
   }
 }
 
+const CALLBACK_COLS = ['callback_at', 'callback_done_at'];
+
 // ---------------------------------------------------------------- Postgres
+/** Additive column migrations for an existing Supabase database (the app adds them itself on startup,
+ *  so a deploy needs no manual SQL). Checks first, so the ALTER only runs once. */
+async function migratePostgres(db) {
+  const have = new Set((await db.all(
+    "SELECT column_name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'players'",
+  )).map((r) => r.column_name));
+  if (!have.size) return; // schema not created yet — `npm run db:setup` creates it complete
+  for (const c of CALLBACK_COLS) if (!have.has(c)) await db.exec(`ALTER TABLE players ADD COLUMN IF NOT EXISTS ${c} TEXT`);
+}
+
 const toPg = (sql) => { let i = 0; return sql.replace(/\?/g, () => `$${++i}`); };
 
 async function openPostgres(url) {
@@ -161,6 +176,7 @@ async function openPostgres(url) {
       throw err;
     } finally { client.release(); }
   };
+  await migratePostgres(api);
   return { dialect: 'pg', ...api, tx, pool, close: () => pool.end() };
 }
 

@@ -15,13 +15,25 @@ export const DEFAULT_DISTRIBUTION = [
   { doll: 1, keychain: 5, card: 44 },
 ];
 
+// Placeholder promotions so every "สนใจบริการไหน" option has its own — replace in Backoffice → โปรโมชัน.
+export const MOCK_COUPONS = [
+  { brand: 'Sellsuki Consulting', benefit: 'ปรึกษาวางแผนกลยุทธ์ธุรกิจ ฟรี 1 ชั่วโมง', service: 'strategy' },
+  { brand: 'Sellsuki e-Distributor', benefit: 'ฟรีค่าแรกเข้า ดูแลร้านค้าออนไลน์เดือนแรก', service: 'e_distributor' },
+  { brand: 'Wizemoves Website', benefit: 'ลด 10% ทำเว็บไซต์', service: 'website' },
+  { brand: 'Oc2plus', benefit: 'ฟรี Data Health Check วิเคราะห์ข้อมูลธุรกิจ 1 ครั้ง', service: 'data' },
+  { brand: 'Sellsuki HR Consulting', benefit: 'ปรึกษาด้าน HR ฟรี 1 ครั้ง', service: 'hr' },
+  { brand: 'LINE Ads', benefit: 'รับเครดิตโฆษณาบน LINE เพิ่ม 10%', service: 'line_ads' },
+  { brand: 'Sellsuki', benefit: 'ปรึกษาฟรีกับทีม AE พร้อมรับ Customer Report', service: 'unsure' },
+];
+
 export const DEFAULT_COUPONS = [
-  { brand: 'LINE', benefit: 'ลด 50% Setup LINE Account (ย้ายมา Sellsuki + สมัครแพ็กโปร 1 ปีขึ้นไป)', service: 'line' },
+  { brand: 'LINE', benefit: 'ลด 50% Setup LINE Account (ย้ายมา Sellsuki + สมัครแพ็กโปร 1 ปีขึ้นไป)', service: 'line_oa' },
   { brand: 'Akita', benefit: 'ฟรีบริการแพ็ก 100 ออเดอร์แรก กับ Akita Fulfillment', service: 'warehouse' },
-  { brand: 'Wizemoves Influencer', benefit: 'ลด 10% Influencer Marketing', service: 'influencer' },
-  { brand: 'Wizemoves Ads', benefit: 'ลด 10% Online Advertising', service: 'ads' },
-  { brand: 'Wizemoves Content', benefit: 'ซื้อบริการ 1 ปี ฟรี 1 เดือน', service: 'content' },
-  { brand: 'Wizemoves Martech', benefit: 'ลด 5%', service: 'website' },
+  { brand: 'Wizemoves Influencer', benefit: 'ลด 10% Influencer Marketing', service: 'ads_content' },
+  { brand: 'Wizemoves Ads', benefit: 'ลด 10% Online Advertising', service: 'ads_content' },
+  { brand: 'Wizemoves Content', benefit: 'ซื้อบริการ 1 ปี ฟรี 1 เดือน', service: 'ads_content' },
+  { brand: 'Wizemoves Martech', benefit: 'ลด 5%', service: 'line_martech' },
+  ...MOCK_COUPONS,
 ];
 
 /** Shuffle counts {prizeId: n} into an array of prize ids (Fisher–Yates). */
