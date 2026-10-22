@@ -455,3 +455,26 @@ test('"นัดคุยกับทีม": player requests a call-back once; 
     assert.match(csv.body, /W-cb-player01,.*2026-11-01T10:00:00\+07:00,2026-11-01T11:00:00\+07:00/);
   } finally { await t.close(); }
 });
+
+test('existing databases get placeholder promotions for uncovered services — once', async () => {
+  const t = await boot();
+  try {
+    const { addMockCouponsOnce, MOCK_COUPONS_FLAG } = await import('../src/seed.js');
+    // Simulate production before this release: only the 6 original promotions, first-version service ids.
+    await t.db.run('DELETE FROM coupons');
+    await t.db.run('DELETE FROM settings WHERE key = ?', [MOCK_COUPONS_FLAG]);
+    const old = [['LINE', 'line'], ['Akita', 'warehouse'], ['Wizemoves Influencer', 'influencer'], ['Wizemoves Ads', 'ads'], ['Wizemoves Content', 'content'], ['Wizemoves Martech', 'website']];
+    for (const [i, [brand, service]] of old.entries()) await t.db.run('INSERT INTO coupons (brand, benefit, service, sort) VALUES (?, ?, ?, ?)', [brand, 'x', service, i + 1]);
+
+    const added = await addMockCouponsOnce(t.db);
+    const services = (await t.db.all('SELECT service FROM coupons', [])).map((c) => c.service);
+    assert.equal(added, 7); // strategy, e_distributor, data, hr, line_ads, line_martech, unsure
+    for (const s of ['strategy', 'e_distributor', 'data', 'hr', 'line_ads', 'line_martech', 'unsure']) assert.ok(services.includes(s), s);
+    assert.equal(services.filter((s) => s === 'website').length, 1); // Martech still covers website — no duplicate
+
+    // Admin deletes one → it is not re-added on the next start.
+    await t.db.run("DELETE FROM coupons WHERE service = 'hr'");
+    assert.equal(await addMockCouponsOnce(t.db), 0);
+    assert.ok(!(await t.db.get("SELECT 1 AS x FROM coupons WHERE service = 'hr'")));
+  } finally { await t.close(); }
+});

@@ -6,7 +6,7 @@ import { dirname, join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { openDb, getSettings, setSetting } from './db.js';
 import { createStorage } from './storage.js';
-import { seedIfEmpty, MOCK_COUPONS } from './seed.js';
+import { seedIfEmpty, addMockCouponsOnce, MOCK_COUPONS } from './seed.js';
 import { createGame } from './game.js';
 import { bangkokNow } from './time.js';
 import { verifyIdToken, pushResult } from './line.js';
@@ -32,6 +32,9 @@ export async function createApp({ dbFile = 'data/event.db', env = process.env, c
   const db = await openDb({ url: env.DATABASE_URL, file: dbFile });
   // Local SQLite seeds itself; Postgres is seeded once by `npm run db:setup`.
   if (db.dialect === 'sqlite') await seedIfEmpty(db, { startDate: clock().date });
+  // Existing databases get placeholder promotions for the new service options (once).
+  await addMockCouponsOnce(db).then((n) => { if (n) console.log(`added ${n} placeholder promotions`); })
+    .catch((err) => console.error('mock promotions step failed:', err.message));
   // Prize images: Supabase Storage when configured, else a folder next to the SQLite file.
   const storage = createStorage({ env, uploadDir: join(dirname(dbFile), 'uploads') });
   const game = createGame(db, clock);

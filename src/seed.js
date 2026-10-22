@@ -1,5 +1,6 @@
 import { addDays } from './time.js';
 import { setSetting } from './db.js';
+import { normalizeService } from './services.js';
 
 export const DEFAULT_PRIZES = [
   { id: 'doll', name: 'ตุ๊กตาน้องสุกี้', emoji: '🧸', color: '#f59e0b', sort: 1 },
@@ -23,6 +24,7 @@ export const MOCK_COUPONS = [
   { brand: 'Oc2plus', benefit: 'ฟรี Data Health Check วิเคราะห์ข้อมูลธุรกิจ 1 ครั้ง', service: 'data' },
   { brand: 'Sellsuki HR Consulting', benefit: 'ปรึกษาด้าน HR ฟรี 1 ครั้ง', service: 'hr' },
   { brand: 'LINE Ads', benefit: 'รับเครดิตโฆษณาบน LINE เพิ่ม 10%', service: 'line_ads' },
+  { brand: 'Sellsuki MarTech', benefit: 'ทดลองใช้ My Customer CRM ฟรี 1 เดือน', service: 'line_martech' },
   { brand: 'Sellsuki', benefit: 'ปรึกษาฟรีกับทีม AE พร้อมรับ Customer Report', service: 'unsure' },
 ];
 
@@ -33,8 +35,9 @@ export const DEFAULT_COUPONS = [
   { brand: 'Wizemoves Ads', benefit: 'ลด 10% Online Advertising', service: 'ads_content' },
   { brand: 'Wizemoves Content', benefit: 'ซื้อบริการ 1 ปี ฟรี 1 เดือน', service: 'ads_content' },
   { brand: 'Wizemoves Martech', benefit: 'ลด 5%', service: 'line_martech' },
-  ...MOCK_COUPONS,
 ];
+// Fresh databases: the real promotions above, plus a placeholder for every service they don't cover.
+DEFAULT_COUPONS.push(...MOCK_COUPONS.filter((m) => !DEFAULT_COUPONS.some((c) => c.service === m.service)));
 
 /** Shuffle counts {prizeId: n} into an array of prize ids (Fisher–Yates). */
 export function buildSlots(counts) {
@@ -48,6 +51,27 @@ export function buildSlots(counts) {
 }
 
 /** Insert the default prizes/days/promotions/settings on an empty database. Returns true if it seeded. */
+/** One-time data step for databases created before the 11 service options: add a placeholder promotion for
+ *  every service that has none. Runs once (flag in settings), so promotions the admin later deletes stay deleted.
+ *  Serialised with the prize-draw lock so two cold-starting serverless instances can't both insert. */
+export const MOCK_COUPONS_FLAG = 'mock_coupons_v1';
+export async function addMockCouponsOnce(db) {
+  return db.tx(async (q) => {
+    if (await q.get('SELECT 1 AS x FROM settings WHERE key = ?', [MOCK_COUPONS_FLAG])) return 0;
+    if (!(await q.get('SELECT 1 AS x FROM prizes LIMIT 1'))) return 0; // not set up yet — seeding adds them
+    const have = new Set((await q.all('SELECT service FROM coupons WHERE active = 1')).map((c) => normalizeService(c.service)).filter(Boolean));
+    const { m } = await q.get('SELECT COALESCE(MAX(sort), 0) AS m FROM coupons');
+    let sort = Number(m); let added = 0;
+    for (const c of MOCK_COUPONS) {
+      if (have.has(c.service)) continue;
+      await q.run('INSERT INTO coupons (brand, benefit, service, sort) VALUES (?, ?, ?, ?)', [c.brand, c.benefit, c.service, ++sort]);
+      added++;
+    }
+    await setSetting(q, MOCK_COUPONS_FLAG, new Date().toISOString());
+    return added;
+  }, { lock: 4242 });
+}
+
 export async function seedIfEmpty(db, { startDate }) {
   const { n } = await db.get('SELECT COUNT(*) AS n FROM prizes');
   if (n) return false;
